@@ -57,7 +57,11 @@ output:  <app-support>/collections/news/output/archive/2025/article.md
 
 ### `state.db` (SQLite)
 
-Two tables.
+The schema lives in `src/forage/db.py`. The database is opened in WAL mode (`PRAGMA journal_mode = WAL`), so a `sqlite3` CLI can safely read the file while a `forage` process is writing.
+
+Three tables.
+
+**`meta`** — schema-version marker, single row keyed on `'schema_version'`.
 
 **`files`** — one row per source file ever seen.
 
@@ -102,7 +106,8 @@ All video files pass through `queue`, even when transcribed inline during `updat
 | `failed`      | Extraction attempted and failed. `status_detail` has error text.          |
 | `suspicious`  | Output written, but post-hoc heuristics flagged possible hallucination.   |
 | `no_audio`    | Video has no audio stream. No output written.                             |
-| `orphan`      | Source file no longer exists. Output may or may not still exist.          |
+
+Orphans (source files that disappeared) are surfaced by `update` and either listed or deleted there — they are not persisted as a status. See "Orphan handling".
 
 ### `config.json` (global)
 
@@ -158,13 +163,13 @@ Source names are unique within a collection. Each source path must be an existin
 
 - File extensions: `.mp4`, `.mov`, `.m4v`, `.mkv`, `.webm`, `.mp3`, `.wav`, `.m4a`.
 - Pre-check via `ffprobe`: if no audio stream, record `status: no_audio` and skip.
-- Language: probe filename and parent directory names for hints (e.g., `/de/`, `_de.mp4`); default to English. (Simple substring check is fine for v1.)
-- Output: concatenated segment text written as Markdown, with timestamps as headings every N minutes. Exact format TBD by the implementing agent; the goal is "readable + useful for RAG chunking".
-- Post-hoc hallucination heuristics, run on the produced segments:
-  1. **Repetition**: any single segment text repeated ≥4 times consecutively → flag.
-  2. **Boilerplate**: transcript ≤200 chars AND matches (case-insensitive, substring) any of a small list — start with `["thanks for watching", "please subscribe", "subscribe to my channel", "see you next time", "danke fürs zuschauen", "bis zum nächsten mal"]`. Make the list a constant near the top of the module so it's easy to edit.
-  3. **Density**: for videos longer than 5 minutes, transcript words / video duration in seconds < 0.3 → flag.
-  4. **Confidence**: if mlx-whisper exposes `avg_logprob` per segment, and the mean across segments is below −1.0, flag. (Threshold may need tuning; make it a constant.)
+- Language: probe filename and every parent directory name for two-letter or full-name hints (`de`/`deu`/`deutsch`/`german`, `en`/`eng`/`english`); default to English.
+- Markdown output: a header block listing source filename, duration, and detected language, followed by section headings of the form `## MM:SS` (or `## H:MM:SS`) every 5 minutes, with all segment texts under that heading concatenated as a single paragraph. See `format_markdown` in `src/forage/extractors/whisper.py` for the canonical implementation.
+- Post-hoc hallucination heuristics, run on the produced segments. Thresholds and the boilerplate phrase list are module-level constants near the top of `src/forage/extractors/whisper.py` so they're easy to tune:
+  1. **Repetition**: any single segment text repeated ≥`REPETITION_THRESHOLD` (4) times consecutively → flag.
+  2. **Boilerplate**: total transcript ≤`SHORT_TRANSCRIPT_CHARS` (200) AND matches (case-insensitive, substring) any phrase in `BOILERPLATE_PHRASES`. Default list covers common YouTube-style sign-offs in English and German.
+  3. **Density**: for videos longer than `DENSITY_MIN_DURATION_SECONDS` (300), transcript words / video duration in seconds < `DENSITY_WORDS_PER_SECOND` (0.3) → flag.
+  4. **Confidence**: if mlx-whisper exposes `avg_logprob` per segment, mean across segments < `LOGPROB_THRESHOLD` (-1.0) → flag.
 - On any heuristic firing: write the Markdown anyway, set `status: suspicious`, put the triggering reason(s) in `status_detail`.
 
 ## Change detection
@@ -341,21 +346,18 @@ Stdout output is human-readable progress: a line per file processed in verbose m
 - DB writes are per-file transactions. Crash mid-run leaves the db in a consistent state with that file still marked `pending` (or its previous status).
 - A simple file lock (`fcntl.flock` on Unix-likes, `msvcrt.locking` on Windows, both held against the collection's `.lock` sentinel) prevents two `forage` processes from operating on the same collection simultaneously. Other collections can run in parallel.
 
-## Open implementation choices (delegated to the implementing agent)
+## Implementation notes
 
-These are intentionally underspecified — pick reasonable defaults and document the choice:
+A few decisions that the spec leaves open but the code has chosen:
 
-- Exact Markdown format for transcripts (timestamp headings, segment formatting).
-- Filename hint heuristics for language detection (German vs. English).
-- mlx-whisper Python API specifics — call signature, segment shape, available metadata fields.
-- How to surface progress for long-running transcriptions (per-segment progress vs. per-file).
-- Logger configuration: `logging` stdlib module, format string, handlers.
-- Argument parsing: `argparse` (stdlib) is sufficient; `click` is fine if preferred.
+- **CLI parser**: `argparse` from the stdlib. Per-subcommand flags plus a small set of global flags. Each subcommand handler lives in `src/forage/commands/`.
+- **Logging**: stdlib `logging`. `src/forage/log.py` sets up one logger with a stderr handler (filtered by `-v`/`-q`) and adds a per-collection file handler for the duration of any command that writes (`update`, `transcribe`, `repair`).
+- **Progress for long transcribes**: per-file, not per-segment. Each queue entry emits a single log line on completion (`running`, then `ok` / `suspicious` / `no_audio` / `failed`). For finer detail set `-v` or read the segment log emitted by `mlx-whisper` itself.
+- **mlx-whisper API**: invoked as `mlx_whisper.transcribe(path, path_or_hf_repo=model, language=lang, verbose=False)`; the returned dict's `segments` key is expected to contain `start`, `end`, `text`, optionally `avg_logprob` per segment.
 
 ## Out of scope for v1
 
 - Watch-mode / automatic re-runs (manual trigger is fine).
-- OCR for scanned PDFs.
 - Time Machine / Spotlight exclusion of the output directory (deferred per user).
 - Concurrency across multiple files in one collection.
 - Move detection via content hash.
