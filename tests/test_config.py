@@ -47,3 +47,23 @@ def test_collection_config_roundtrip():
     assert again == cfg
     assert again.source("a").path == "/tmp/a"
     assert again.source("missing") is None
+
+
+def test_collection_config_do_ocr_default_true():
+    cfg = config.CollectionConfig(name="x")
+    assert cfg.do_ocr is True
+    again = config.CollectionConfig.from_json(cfg.to_json())
+    assert again.do_ocr is True
+
+
+def test_collection_config_do_ocr_roundtrip():
+    cfg = config.CollectionConfig(name="x", do_ocr=False)
+    again = config.CollectionConfig.from_json(cfg.to_json())
+    assert again.do_ocr is False
+
+
+def test_collection_config_do_ocr_legacy_default():
+    # Configs written before do_ocr existed should default to True.
+    payload = '{"version": 1, "name": "legacy", "created_at": "", "sources": []}'
+    cfg = config.CollectionConfig.from_json(payload)
+    assert cfg.do_ocr is True

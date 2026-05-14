@@ -63,9 +63,10 @@ def cmd_update(args: argparse.Namespace) -> int:
     log_handler = log.add_collection_log(paths.collection_log_path(cfg.name))
     logger = log.get_logger()
     logger.info(
-        "update %s: argv=%s source=%s ext=%s defer_video=%s dry_run=%s orphans=%s",
+        "update %s: argv=%s source=%s ext=%s defer_video=%s dry_run=%s "
+        "orphans=%s do_ocr=%s",
         cfg.name, sys.argv[1:], args.source_name, args.ext,
-        args.defer_video, args.dry_run, args.orphans,
+        args.defer_video, args.dry_run, args.orphans, cfg.do_ocr,
     )
 
     stats = UpdateStats()
@@ -75,7 +76,7 @@ def cmd_update(args: argparse.Namespace) -> int:
             db.init_schema(conn)
             for source_cfg in sources_to_walk:
                 for item in walk.walk_source(conn, source_cfg, ext_filter):
-                    _process_item(args, conn, cfg.name, source_cfg, item,
+                    _process_item(args, conn, cfg, source_cfg, item,
                                   output_dir, stats, logger)
             _handle_orphans(args, conn, output_dir, cfg, stats, logger)
     finally:
@@ -95,13 +96,14 @@ def cmd_update(args: argparse.Namespace) -> int:
 def _process_item(
     args: argparse.Namespace,
     conn: sqlite3.Connection,
-    coll_name: str,
+    cfg: config.CollectionConfig,
     source_cfg: config.Source,
     item: walk.WalkItem,
     output_dir: Path,
     stats: UpdateStats,
     logger,
 ) -> None:
+    coll_name = cfg.name
     rel_key = f"{item.source}/{item.rel}"
 
     if item.classification is walk.Classification.UNCHANGED:
@@ -148,7 +150,6 @@ def _process_item(
         logger.info("queued   %s", rel_key)
         if not args.defer_video:
             from forage.commands.transcribe import transcribe_one
-            cfg = config.load_collection(coll_name)
             outcome = transcribe_one(
                 conn, cfg, item.source, item.rel, output_dir, logger
             )
@@ -168,7 +169,7 @@ def _process_item(
 
     out_path = output_dir / out_rel
     try:
-        extractor = extractors.get_extractor("docling")
+        extractor = extractors.get_docling(do_ocr=cfg.do_ocr)
         result = extractor.extract(item.abs)
         write_atomic(out_path, result.markdown)
         sha = item.sha256

@@ -51,6 +51,7 @@ class CollectionConfig:
     sources: list[Source] = field(default_factory=list)
     created_at: str = ""
     version: int = 1
+    do_ocr: bool = True
 
     def to_json(self) -> str:
         return json.dumps(
@@ -58,6 +59,7 @@ class CollectionConfig:
                 "version": self.version,
                 "name": self.name,
                 "created_at": self.created_at,
+                "do_ocr": self.do_ocr,
                 "sources": [s.to_dict() for s in self.sources],
             },
             indent=2,
@@ -71,6 +73,7 @@ class CollectionConfig:
             sources=[Source.from_dict(s) for s in d.get("sources", [])],
             created_at=d.get("created_at", ""),
             version=d.get("version", 1),
+            do_ocr=bool(d.get("do_ocr", True)),
         )
 
     def source(self, name: str) -> Source | None:

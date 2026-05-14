@@ -24,7 +24,7 @@ class FakeDocling:
 @pytest.fixture
 def fake_docling(monkeypatch: pytest.MonkeyPatch) -> FakeDocling:
     fake = FakeDocling()
-    monkeypatch.setattr(extractors, "_REGISTRY", {"docling": fake})
+    monkeypatch.setattr(extractors, "get_docling", lambda *, do_ocr: fake)
     return fake
 
 

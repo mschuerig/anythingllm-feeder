@@ -39,14 +39,14 @@ class FailingDocling:
 @pytest.fixture
 def fake_docling(monkeypatch: pytest.MonkeyPatch) -> FakeDocling:
     fake = FakeDocling()
-    monkeypatch.setattr(extractors, "_REGISTRY", {"docling": fake})
+    monkeypatch.setattr(extractors, "get_docling", lambda *, do_ocr: fake)
     return fake
 
 
 @pytest.fixture
 def failing_docling(monkeypatch: pytest.MonkeyPatch) -> FailingDocling:
     fake = FailingDocling()
-    monkeypatch.setattr(extractors, "_REGISTRY", {"docling": fake})
+    monkeypatch.setattr(extractors, "get_docling", lambda *, do_ocr: fake)
     return fake
 
 
@@ -261,6 +261,32 @@ def test_update_video_enqueues_only(
         assert row.status == "pending"
         assert row.extractor == "mlx-whisper"
         assert db.queue_depth(conn, "pending") == 1
+
+
+def test_update_passes_do_ocr_from_config(
+    app_support: Path, tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "a.md").write_text("hi")
+    _seed("demo", src)
+
+    # Flip do_ocr off in the collection config.
+    cfg = config.load_collection("demo")
+    cfg.do_ocr = False
+    config.save_collection(cfg)
+
+    captured = {}
+    def fake_get_docling(*, do_ocr: bool):
+        captured["do_ocr"] = do_ocr
+        return FakeDocling()
+    monkeypatch.setattr(extractors, "get_docling", fake_get_docling)
+
+    capsys.readouterr()
+    rc = run("update", "demo")
+    assert rc == 0
+    assert captured == {"do_ocr": False}
 
 
 def test_update_all(

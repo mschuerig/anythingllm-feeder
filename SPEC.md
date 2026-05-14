@@ -123,6 +123,7 @@ All video files pass through `queue`, even when transcribed inline during `updat
   "version": 1,
   "name": "news",
   "created_at": "2026-05-14T12:00:00Z",
+  "do_ocr": true,
   "sources": [
     {
       "name": "archive",
@@ -140,6 +141,8 @@ All video files pass through `queue`, even when transcribed inline during `updat
 
 Source names are unique within a collection. Each source path must be an existing directory.
 
+`do_ocr` controls docling's OCR pass for this collection. Defaults to `true`. Set to `false` for corpora known to be entirely born-digital (PDFs, Office docs without embedded images) to speed up extraction. Edit the file directly while no `forage` process is running against the collection; the new setting takes effect on the next `forage update`.
+
 ## Extractors
 
 ### Docling (default for non-video)
@@ -147,7 +150,7 @@ Source names are unique within a collection. Each source path must be an existin
 - File extensions: `.pdf`, `.docx`, `.pptx`, `.xlsx`, `.html`, `.txt`, `.md`. (Anything docling accepts; configurable in code but not on CLI for v1.)
 - Reuse a single `DocumentConverter` instance per run to amortize model load.
 - Export to Markdown via `result.document.export_to_markdown()`.
-- OCR off (the user has stated no scanned PDFs).
+- OCR is **on by default** (safe choice — born-digital PDFs are still extracted natively; OCR is a supplementary pass that catches text in scanned pages and image regions). Each collection's `config.json` has a top-level `do_ocr` boolean (default `true`); set it to `false` to skip the OCR pass entirely, which makes runs noticeably faster on corpora with no scanned material.
 - Table-structure on (docling default).
 - On exception, record `status: failed` with the exception's message.
 

@@ -200,6 +200,22 @@ Useful flags:
 
 You can re-run `forage transcribe news --time-limit 2h` every night until the queue is empty.
 
+### Disabling OCR for a collection
+
+When forage extracts a PDF with docling, it also runs an OCR pass to pick up text in scanned pages and image regions. This is on by default because it's the safe choice — if a scanned document shows up in your sources, you still get the text. But if you know a collection is entirely born-digital (PDFs exported from word processors, Office documents with no embedded images, etc.), the OCR pass adds noticeable overhead for no gain.
+
+To turn it off for one collection, edit `<data-dir>/collections/<name>/config.json` while no `forage` command is running against that collection, and set:
+
+```json
+{
+  "do_ocr": false
+}
+```
+
+(Leave the other fields alone.) The next `forage update` will use the new setting. Already-extracted files won't be re-extracted — they're up to date in the database — but new and changed files will run without the OCR pass.
+
+Flip it back to `true` whenever you start mixing scanned material in.
+
 ### Suspicious transcripts
 
 Whisper sometimes hallucinates — making up text when there's nothing to transcribe. forage runs a handful of sanity checks on every transcript (repetition, boilerplate phrases like "thanks for watching," very low word density, very low model confidence). If anything looks off, the file is marked `suspicious` instead of `ok`. The Markdown is still written; `forage info` lists suspicious files at the bottom so you can review them.
