@@ -6,7 +6,7 @@
 
 ## Conventions
 
-- All storage paths (`~/Library/Application Support/forage/…`) are resolved through `src/forage/paths.py`. No hard-coded paths elsewhere.
+- All storage paths are resolved through `src/forage/paths.py`. No hard-coded paths elsewhere. `paths.app_support_dir()` returns the platform-appropriate root (macOS → `~/Library/Application Support/forage`, Linux → `$XDG_DATA_HOME/forage`, Windows → `%LOCALAPPDATA%/forage`), overridable via `FORAGE_APP_SUPPORT`.
 - DB writes go through typed functions in `src/forage/db.py`. Don't inline SQL in commands.
 - All extraction outputs are atomic: write to `<path>.tmp`, fsync, rename. Centralized in `src/forage/output.py`.
 - Timestamps in DB and config are ISO 8601 UTC strings (`datetime.now(UTC).isoformat(timespec="seconds")`); source mtime stays POSIX float.

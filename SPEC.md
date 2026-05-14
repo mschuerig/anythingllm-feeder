@@ -6,28 +6,39 @@ A command-line tool that extracts text from documents and videos into Markdown, 
 
 ## Platform and dependencies
 
-- macOS, Apple Silicon (developed against M1 Max).
 - Python 3.11+.
+- Developed on macOS (Apple Silicon, M1 Max). The Python code is portable; storage paths, file locks, and the docling extractor work on macOS, Linux, and Windows.
+- Video/audio transcription uses `mlx-whisper` and therefore currently requires Apple Silicon. On other platforms the `whisper` extra simply isn't installable; everything else continues to work and videos can still be queued (`--defer-video`), just not drained.
 - External tools invoked as subprocesses or imported libraries:
-  - `docling` — PDF and other document extraction.
-  - `mlx-whisper` (a.k.a. `whisper-mlx`) — video/audio transcription.
-  - `ffprobe` / `ffmpeg` — audio stream inspection and extraction for whisper input. Assume installed via Homebrew (`brew install ffmpeg`).
+  - `docling` — PDF and other document extraction. Cross-platform.
+  - `mlx-whisper` (a.k.a. `whisper-mlx`) — video/audio transcription. Apple Silicon only.
+  - `ffprobe` / `ffmpeg` — audio stream inspection and extraction for whisper input. Install via the platform's usual package manager (`brew install ffmpeg` on macOS, `apt install ffmpeg` on Debian/Ubuntu, etc.).
 
-No coupling to MacWhisper. mlx-whisper downloads its own models to `~/.cache/huggingface/hub/`.
+No coupling to MacWhisper. mlx-whisper downloads its own models to its huggingface cache (`~/.cache/huggingface/hub/` on Unix).
 
 ## Storage layout
 
-All forage state lives under `~/Library/Application Support/forage/`:
+All forage state lives under a platform-specific data directory, hereafter `<app-support>`:
+
+| platform                | `<app-support>` default                         |
+|-------------------------|-------------------------------------------------|
+| macOS                   | `~/Library/Application Support/forage/`         |
+| Linux / other Unix      | `$XDG_DATA_HOME/forage/`, falling back to `~/.local/share/forage/` |
+| Windows                 | `%LOCALAPPDATA%\forage\`, falling back to `~/AppData/Local/forage/` |
+
+The `FORAGE_APP_SUPPORT` environment variable overrides the default. The test suite uses this to redirect state into a per-test temp directory.
+
+Layout under `<app-support>`:
 
 ```
-~/Library/Application Support/forage/
+<app-support>/
 ├── config.json                       # global config (whisper model, defaults, etc.)
 └── collections/
     └── <collection-name>/
         ├── config.json               # collection config (sources, etc.)
         ├── state.db                  # SQLite manifest + transcription queue
         ├── extract.log               # append-only log
-        ├── .lock                     # flock sentinel (single-writer guard)
+        ├── .lock                     # file-lock sentinel (single-writer guard)
         └── output/                   # parallel Markdown hierarchy
             └── <source-name>/        # one subtree per source
                 └── ...               # mirrors structure under that source's root
@@ -35,11 +46,11 @@ All forage state lives under `~/Library/Application Support/forage/`:
 
 Each source's output sits under its own named subdirectory. The source name is supplied by the user when the source is added and must match `^[a-z0-9][a-z0-9_-]*$` (lowercase slug — it doubles as a directory name and a key in the database).
 
-Output files mirror the source tree, with the extension replaced by `.md`. Example, for a collection `news` containing a source named `archive` rooted at `/Users/michael/Documents/news-archive/`:
+Output files mirror the source tree, with the extension replaced by `.md`. Example, for a collection `news` containing a source named `archive` rooted at `~/Documents/news-archive/`:
 
 ```
-source:  /Users/michael/Documents/news-archive/2025/article.pdf
-output:  ~/Library/Application Support/forage/collections/news/output/archive/2025/article.md
+source:  ~/Documents/news-archive/2025/article.pdf
+output:  <app-support>/collections/news/output/archive/2025/article.md
 ```
 
 ## Data model
@@ -115,12 +126,12 @@ All video files pass through `queue`, even when transcribed inline during `updat
   "sources": [
     {
       "name": "archive",
-      "path": "/Users/michael/Documents/news-archive",
+      "path": "/home/me/Documents/news-archive",
       "created_at": "2026-05-14T12:00:00Z"
     },
     {
       "name": "drafts",
-      "path": "/Users/michael/Documents/news-drafts",
+      "path": "/home/me/Documents/news-drafts",
       "created_at": "2026-05-14T12:30:00Z"
     }
   ]
@@ -199,7 +210,7 @@ Create a new collection with one or more sources.
 - The `--source` flag is repeatable; at least one is required.
 - Each `NAME` is a slug matching `^[a-z0-9][a-z0-9_-]*$`, unique within the collection.
 - Each `PATH` must exist and be a directory.
-- Creates `~/Library/Application Support/forage/collections/<name>/` and subdirs, one per source.
+- Creates `<app-support>/collections/<name>/` and subdirs, one per source.
 - Writes collection `config.json`, creates empty `state.db` with schema.
 - Errors if a collection with that name already exists, if a source name is invalid or duplicated, or if a source path is not a directory.
 
@@ -325,7 +336,7 @@ Stdout output is human-readable progress: a line per file processed in verbose m
 - Sequential processing throughout. No worker pool.
 - Each extraction writes to `<output>.tmp`, then renames to `<output>` on success. Interrupts leave no partial output files.
 - DB writes are per-file transactions. Crash mid-run leaves the db in a consistent state with that file still marked `pending` (or its previous status).
-- A simple file lock (`flock` on a sentinel file in the collection directory) prevents two `forage` processes from operating on the same collection simultaneously. Other collections can run in parallel.
+- A simple file lock (`fcntl.flock` on Unix-likes, `msvcrt.locking` on Windows, both held against the collection's `.lock` sentinel) prevents two `forage` processes from operating on the same collection simultaneously. Other collections can run in parallel.
 
 ## Open implementation choices (delegated to the implementing agent)
 

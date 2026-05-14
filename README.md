@@ -20,55 +20,63 @@ A few terms used throughout this README:
 
 ---
 
+## Platform support
+
+forage is developed on **macOS (Apple Silicon)** and works fully there. It also works on **Linux** for everything *except* video/audio transcription — that feature uses `mlx-whisper`, which only runs on Apple Silicon. On Linux you can still create collections, process documents, and queue videos for later (just not drain the queue). Windows works in principle (the storage paths and file lock are portable) but is not regularly tested.
+
+The instructions below cover macOS and Linux side by side. Pick the path that matches your machine.
+
 ## Before you start: install the prerequisites
 
-You will install four things, in order. Each one is a single command in Terminal.
+You will install three things: **ffmpeg**, **Python 3.11+**, and **uv** (a Python package manager that keeps forage isolated from the rest of your system).
 
-Open Terminal: press `Cmd+Space`, type `terminal`, hit Return.
+Open a terminal:
 
-### 1. Homebrew
+- **macOS**: press `Cmd+Space`, type `terminal`, hit Return.
+- **Linux**: open your distribution's terminal application (often `Ctrl+Alt+T`).
 
-Homebrew is the standard Mac package manager. If you already have it (you can check by running `brew --version`), skip this step.
+### On macOS
+
+If you don't already have **Homebrew** (check with `brew --version`), install it:
 
 ```sh
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-When it finishes, follow the on-screen instructions to add Homebrew to your shell — it usually tells you to run two `echo … >> ~/.zprofile` commands and then `eval "$(/opt/homebrew/bin/brew shellenv)"`. Do those.
-
-### 2. ffmpeg
-
-forage uses `ffmpeg` (specifically its `ffprobe` companion) to check whether a video has any audio before transcribing it.
+Follow the on-screen instructions at the end to add Homebrew to your shell. Then:
 
 ```sh
-brew install ffmpeg
+brew install ffmpeg python uv
 ```
 
-### 3. Python 3.11 or newer
+### On Linux
+
+Use your distribution's package manager. On Debian / Ubuntu:
 
 ```sh
-brew install python
+sudo apt update
+sudo apt install ffmpeg python3 python3-venv
 ```
 
-Verify:
+On Fedora:
 
 ```sh
-python3 --version
+sudo dnf install ffmpeg python3
 ```
 
-You should see `Python 3.11.x` or later.
-
-### 4. uv
-
-`uv` is a modern Python package manager. It handles installing forage and its dependencies in an isolated environment so it can't break anything else on your computer.
+Then install **uv** (one cross-distro command):
 
 ```sh
-brew install uv
+curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-Verify:
+Follow the printed instructions to put `uv` on your `PATH` (usually appending `~/.local/bin` to it via your shell rc file).
+
+### Verify the prerequisites
 
 ```sh
+ffprobe -version
+python3 --version          # should be 3.11 or higher
 uv --version
 ```
 
@@ -78,19 +86,21 @@ uv --version
 
 forage isn't published to any package index yet; you install it directly from the source folder.
 
-Open Terminal and `cd` into the folder containing this README. For example:
+`cd` into the folder containing this README. For example:
 
 ```sh
-cd ~/Projekte/forage
+cd ~/Projekte/forage     # macOS / Linux
 ```
 
-Then install everything:
+Install everything:
 
 ```sh
-uv sync --extra all
+uv sync --extra all       # on Apple Silicon: docling + mlx-whisper
+# or, on Linux / non-Apple-Silicon:
+uv sync --extra docling   # documents only; whisper is skipped
 ```
 
-This creates a `.venv/` folder inside the project, downloads forage's dependencies into it, and installs the `forage` command itself. The `--extra all` flag pulls in *docling* (for documents) and *mlx-whisper* (for audio/video). The first install can take several minutes because docling and whisper are large.
+This creates a `.venv/` folder inside the project, downloads forage's dependencies into it, and installs the `forage` command. The first install can take several minutes because docling is large.
 
 Verify that forage is callable:
 
@@ -102,13 +112,13 @@ You should see a list of subcommands.
 
 ### Make `forage` work from anywhere (optional)
 
-To avoid typing `.venv/bin/forage` every time, add the project's `.venv/bin` to your `PATH`. Append this line to `~/.zshrc`:
+To avoid typing `.venv/bin/forage` every time, add the project's `.venv/bin` to your `PATH`. Append this line to the rc file for your shell (`~/.zshrc` on macOS's default zsh, `~/.bashrc` on most Linux bash setups):
 
 ```sh
 export PATH="$HOME/Projekte/forage/.venv/bin:$PATH"
 ```
 
-(Adjust the path if you installed forage somewhere else.) Then either restart Terminal or run `source ~/.zshrc`.
+(Adjust the path if you installed forage somewhere else.) Either restart the terminal or run `source ~/.zshrc` (or `~/.bashrc`).
 
 After this, plain `forage --help` will work from any folder.
 
@@ -142,11 +152,11 @@ forage create news \
 forage update news
 ```
 
-This walks each source and converts every supported file to Markdown. It can take a while the first time — docling has to load its models. Output goes here:
+This walks each source and converts every supported file to Markdown. It can take a while the first time — docling has to load its models. Output goes under forage's data directory (see [Where forage stores things](#where-forage-stores-things) for the exact path on your platform):
 
 ```
-~/Library/Application Support/forage/collections/news/output/archive/...
-~/Library/Application Support/forage/collections/news/output/drafts/...
+<data-dir>/collections/news/output/archive/...
+<data-dir>/collections/news/output/drafts/...
 ```
 
 ### 3. See what happened
@@ -246,10 +256,20 @@ Useful `update` flags:
 
 ## Where forage stores things
 
-Everything lives under `~/Library/Application Support/forage/`. That folder is the right thing to back up if you want to preserve your processed Markdown.
+forage keeps everything under a single data directory whose location depends on your platform:
+
+| platform                | path                                                  |
+|-------------------------|-------------------------------------------------------|
+| macOS                   | `~/Library/Application Support/forage/`               |
+| Linux (and other Unix)  | `$XDG_DATA_HOME/forage/`, defaulting to `~/.local/share/forage/` |
+| Windows                 | `%LOCALAPPDATA%\forage\`, defaulting to `~/AppData/Local/forage/` |
+
+If you want to put it somewhere else, set the `FORAGE_APP_SUPPORT` environment variable to your chosen directory. That's the right folder to back up if you want to preserve your processed Markdown.
+
+Layout inside (substitute the path above for `<data-dir>`):
 
 ```
-~/Library/Application Support/forage/
+<data-dir>/
 ├── config.json                    # global settings (whisper model, defaults)
 └── collections/
     └── news/                      # one folder per collection
@@ -261,7 +281,7 @@ Everything lives under `~/Library/Application Support/forage/`. That folder is t
             └── drafts/...
 ```
 
-Whisper model files live separately under `~/.cache/huggingface/hub/`. The first transcription downloads one (gigabytes); subsequent runs reuse it.
+Whisper model files live separately under the Hugging Face cache (`~/.cache/huggingface/hub/` on macOS/Linux, `~/.cache/huggingface/hub/` or `%USERPROFILE%/.cache/huggingface/hub/` on Windows). The first transcription downloads one (gigabytes); subsequent runs reuse it.
 
 ---
 
@@ -320,7 +340,7 @@ forage repair news --rebuild     # rebuild state.db from disk
 
 ### Logs
 
-Every run appends a line per file to `~/Library/Application Support/forage/collections/<name>/extract.log`. If something failed, look there for the stack trace.
+Every run appends a line per file to `<data-dir>/collections/<name>/extract.log` (see [Where forage stores things](#where-forage-stores-things) for the actual location on your platform). If something failed, look there for the stack trace.
 
 ---
 
@@ -339,11 +359,27 @@ That's it. Your collections and processed files are untouched.
 
 ## Uninstalling
 
-To remove forage entirely:
+To remove forage entirely, delete the source folder and the data directory.
+
+**macOS:**
 
 ```sh
-rm -rf ~/Projekte/forage              # the source code
-rm -rf ~/Library/Application\ Support/forage   # collections, output, database
+rm -rf ~/Projekte/forage
+rm -rf ~/Library/Application\ Support/forage
+```
+
+**Linux:**
+
+```sh
+rm -rf ~/Projekte/forage
+rm -rf ~/.local/share/forage          # or $XDG_DATA_HOME/forage if you set it
+```
+
+**Windows (PowerShell):**
+
+```powershell
+Remove-Item -Recurse -Force $HOME\Projekte\forage
+Remove-Item -Recurse -Force $Env:LOCALAPPDATA\forage
 ```
 
 The whisper models in `~/.cache/huggingface/hub/` are shared with other tools; remove them only if you're sure nothing else uses them.
