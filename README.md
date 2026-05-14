@@ -215,7 +215,7 @@ collection: news
   orphans:   0
 ```
 
-On a first run everything is "new." Pass `-v` to see the file list.
+On a first run everything is "new." Pass `-v` to see the file list. After your first sync, `ingest status` also reports how much disk space the collection is using inside AnythingLLM — see [How big is this collection inside AnythingLLM?](#how-big-is-this-collection-inside-anythingllm) below.
 
 ### 6. Run the sync
 
@@ -323,6 +323,41 @@ ingest sync news --include-suspicious
 
 If you do, the file gets uploaded. Importantly, the next time you run `ingest sync news` *without* that flag, the suspicious document is **not** deleted. ingest treats it as still-valid and just leaves it alone. (This is a small safety net so toggling the flag off doesn't silently wipe what you opted in.)
 
+### How big is this collection inside AnythingLLM?
+
+After you've synced at least once, `ingest status <name>` also reports the disk space your collection is using inside AnythingLLM:
+
+```
+storage in AnythingLLM (/Users/you/Library/Application Support/anythingllm-desktop/storage):
+  documents:       14.8 MB  (748 files)
+  vectors:         82.6 MB  (lancedb)
+  attributable:    97.4 MB
+  shared:         189.3 MB  (vector-cache/, across all workspaces)
+```
+
+What each line means:
+
+- **`documents`** — the JSON files AnythingLLM keeps under `documents/custom-documents/` for the documents this collection uploaded. One file per document.
+- **`vectors`** — the per-workspace vector index under `lancedb/<workspace>.lance/`. This is the bulk of "what the embeddings cost."
+- **`attributable`** — `documents + vectors`. The number to look at if you want a single answer to "what is this collection costing me?"
+- **`shared`** — AnythingLLM's `vector-cache/` directory. It speeds up re-embedding and is shared by every workspace on your instance, so it isn't broken out per collection.
+
+On macOS desktop ingest finds AnythingLLM's storage automatically. If you've moved it (or you're on Linux / running in Docker), tell ingest where to look — either in `<data-dir>/config.json`:
+
+```json
+{
+  "anythingllm_storage_dir": "/path/to/anythingllm/storage"
+}
+```
+
+or per-shell:
+
+```sh
+export ANYTHINGLLM_STORAGE_DIR=/path/to/anythingllm/storage
+```
+
+If ingest can't find the directory, it just skips this section quietly — the diff (new / changed / etc.) is still printed.
+
 ### Orphans
 
 If you delete a file from your source folder and re-run `forage update news --orphans delete`, forage drops the row from its database. The next `ingest sync news` notices the gap and removes the corresponding document from AnythingLLM.
@@ -378,6 +413,7 @@ The actual document content lives in AnythingLLM, not here. If you delete this f
 
 - **`base_url`** — where ingest looks for AnythingLLM. Override per-shell with `ANYTHINGLLM_URL`.
 - **`workspace_prefix`** — what ingest prepends to each collection name when picking a workspace slug. A collection called `news` becomes the workspace `forage-news`. Change this if you want a different naming convention; existing workspaces won't be renamed retroactively, so do it before your first sync.
+- **`anythingllm_storage_dir`** — path to AnythingLLM's `storage/` directory, only used to compute the storage report in `ingest status`. Leave unset to use the macOS desktop default. Override per-shell with `ANYTHINGLLM_STORAGE_DIR`.
 
 The API key is read from the `ANYTHINGLLM_API_KEY` environment variable only — it's never written to disk.
 

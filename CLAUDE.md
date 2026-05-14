@@ -17,6 +17,7 @@ A small CLI that reads a forage collection's manifest + Markdown output and push
 - The server is **local**. Do not add retry/backoff loops, TLS-specific code, or rate-limit handling. If it's down, fail fast with the actionable error already in `_request`.
 - Uploads use `POST /api/v1/document/raw-text`, never `/document/upload`. Forage already extracted clean Markdown; re-parsing it through AnythingLLM's Collector is wasted work.
 - Sync's diff classification is in `src/ingest/sync.py::compute_diff`. The `keep_alive_keys` argument protects previously-uploaded `suspicious` documents from being deleted when the user runs without `--include-suspicious`. Don't drop this parameter without understanding the failure mode it prevents (see SPEC.md acceptance scenario 7).
+- `src/ingest/storage.py` is the *only* module that knows AnythingLLM's on-disk layout (`documents/`, `lancedb/<slug>.lance/`, `vector-cache/`). Keep it that way: if you need a new storage number, extend this module rather than scattering path knowledge into commands. Resolution of the storage dir (env → config → platform default) lives in `config.resolve_anythingllm_storage_dir`. It returns `None` when the dir doesn't exist; callers must treat that as "skip, don't fail."
 - Timestamps are ISO 8601 UTC strings (`config.utc_now()`), matching forage's format.
 - `src/ingest/log.py` owns logging setup; one logger fans out to stderr (filtered by `-v`/`-q`) and to the collection's `ingest.log`.
 

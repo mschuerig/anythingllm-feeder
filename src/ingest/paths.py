@@ -72,3 +72,29 @@ def forage_collection_output_dir(name: str) -> Path:
 
 def forage_collection_config_path(name: str) -> Path:
     return forage_collection_dir(name) / "config.json"
+
+
+ANYTHINGLLM_STORAGE_ENV = "ANYTHINGLLM_STORAGE_DIR"
+
+
+def default_anythingllm_storage_dir() -> Path:
+    """Best-guess path to AnythingLLM's `storage/` directory.
+
+    The macOS desktop app keeps everything under
+    ``~/Library/Application Support/anythingllm-desktop/storage/``.
+    Other installations (Docker, server, Linux desktop) live elsewhere and
+    must override via config or env. We only know how to guess for macOS
+    desktop; on other platforms the resolver returns a placeholder that
+    will simply fail the `exists()` check and the caller will skip.
+    """
+    if sys.platform == "darwin":
+        return (
+            Path.home()
+            / "Library"
+            / "Application Support"
+            / "anythingllm-desktop"
+            / "storage"
+        )
+    # No reliable default elsewhere; resolve_anythingllm_storage_dir will
+    # treat a non-existing path as "not configured".
+    return Path("/nonexistent/anythingllm/storage")

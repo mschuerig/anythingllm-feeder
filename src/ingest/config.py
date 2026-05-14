@@ -4,12 +4,14 @@ import json
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 
 from ingest import paths
 
 DEFAULT_BASE_URL = "http://localhost:3001"
 ENV_BASE_URL = "ANYTHINGLLM_URL"
 ENV_API_KEY = "ANYTHINGLLM_API_KEY"
+ENV_STORAGE_DIR = "ANYTHINGLLM_STORAGE_DIR"
 
 
 class ConfigError(Exception):
@@ -29,6 +31,7 @@ class GlobalConfig:
     version: int = 1
     base_url: str = DEFAULT_BASE_URL
     workspace_prefix: str = "forage-"
+    anythingllm_storage_dir: str | None = None
 
     def to_json(self) -> str:
         return json.dumps(
@@ -36,6 +39,7 @@ class GlobalConfig:
                 "version": self.version,
                 "base_url": self.base_url,
                 "workspace_prefix": self.workspace_prefix,
+                "anythingllm_storage_dir": self.anythingllm_storage_dir,
             },
             indent=2,
         )
@@ -47,6 +51,7 @@ class GlobalConfig:
             version=d.get("version", 1),
             base_url=d.get("base_url", DEFAULT_BASE_URL),
             workspace_prefix=d.get("workspace_prefix", "forage-"),
+            anythingllm_storage_dir=d.get("anythingllm_storage_dir"),
         )
 
 
@@ -93,3 +98,26 @@ def resolve_settings() -> Settings:
 def workspace_slug_for(collection: str, *, prefix: str) -> str:
     """Derive an AnythingLLM workspace slug for a forage collection."""
     return f"{prefix}{collection}"
+
+
+def resolve_anythingllm_storage_dir() -> Path | None:
+    """Locate AnythingLLM's storage directory, or None if not findable.
+
+    Resolution order:
+
+    1. ``ANYTHINGLLM_STORAGE_DIR`` environment variable, if set.
+    2. ``anythingllm_storage_dir`` in our global ``config.json``, if set.
+    3. The platform default from ``paths.default_anythingllm_storage_dir()``.
+
+    Returns the resolved path only if it exists on disk. Otherwise returns
+    None, and callers (e.g. status reporting) should treat the feature as
+    unavailable rather than failing the whole command.
+    """
+    raw = os.environ.get(ENV_STORAGE_DIR)
+    if not raw:
+        cfg = load_global()
+        raw = cfg.anythingllm_storage_dir or None
+    candidate = (
+        Path(raw).expanduser() if raw else paths.default_anythingllm_storage_dir()
+    )
+    return candidate if candidate.exists() else None

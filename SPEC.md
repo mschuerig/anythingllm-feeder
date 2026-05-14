@@ -53,18 +53,22 @@ The collection-name subdirectory mirrors forage's `<forage-app-support>/collecti
 {
   "version": 1,
   "base_url": "http://localhost:3001",
-  "workspace_prefix": "forage-"
+  "workspace_prefix": "forage-",
+  "anythingllm_storage_dir": null
 }
 ```
 
+`anythingllm_storage_dir` is only used by the **storage report** (see "Storage attribution" below). When `null`, ingest falls back to the platform default; on macOS desktop that's `~/Library/Application Support/anythingllm-desktop/storage/`. On other platforms there is no reliable default — set the value explicitly or the storage section is skipped.
+
 Env overrides (env wins over config):
 
-| variable                | purpose                                                 |
-|-------------------------|---------------------------------------------------------|
-| `ANYTHINGLLM_URL`       | Base URL of the local AnythingLLM server.               |
-| `ANYTHINGLLM_API_KEY`   | **Required**. Bearer token (Settings → Developer).      |
-| `INGEST_APP_SUPPORT`    | Override ingest's storage root (testing).               |
-| `FORAGE_APP_SUPPORT`    | Read forage state from a non-default root (testing).    |
+| variable                    | purpose                                                       |
+|-----------------------------|---------------------------------------------------------------|
+| `ANYTHINGLLM_URL`           | Base URL of the local AnythingLLM server.                     |
+| `ANYTHINGLLM_API_KEY`       | **Required**. Bearer token (Settings → Developer).            |
+| `ANYTHINGLLM_STORAGE_DIR`   | AnythingLLM's `storage/` directory, for the storage report.   |
+| `INGEST_APP_SUPPORT`        | Override ingest's storage root (testing).                     |
+| `FORAGE_APP_SUPPORT`        | Read forage state from a non-default root (testing).          |
 
 The API key is never persisted to disk. If unset when a network call is needed, the command fails with a clear message. `--dry-run` is the one exception: it tolerates a missing key because it does no I/O against the server.
 
@@ -179,7 +183,7 @@ Run `sync` against every forage collection in sequence. Same options.
 
 #### `ingest status <name> [--include-suspicious] [--json]`
 
-Compute the diff against the current `uploads.db` and print it. No HTTP, no state writes.
+Compute the diff against the current `uploads.db` and print it. No HTTP, no state writes. When AnythingLLM's storage directory is reachable (see "Storage attribution" below) and there are prior uploads to attribute, also print a storage section.
 
 #### `ingest list [--json]`
 
@@ -200,6 +204,33 @@ Returns 0 on success, 1 on any failure with a single-line error message. JSON fo
 Delete ingest's local `uploads.db` for `<name>`. The next `ingest sync` will re-discover everything as `new` and re-upload, producing duplicates in AnythingLLM (AnythingLLM does not deduplicate by content). The `-y` confirmation is required — without it the command prints a warning and exits non-zero.
 
 This does **not** touch documents already in AnythingLLM. Use this only when the local state has drifted past the point of useful reconciliation.
+
+## Storage attribution
+
+`ingest status <name>` reports how much disk space a collection's documents occupy *inside AnythingLLM*. This is the number that's hard to eyeball otherwise — it's split across several subdirectories of AnythingLLM's `storage/` tree.
+
+### Storage directory resolution
+
+In order: `ANYTHINGLLM_STORAGE_DIR` env var → `anythingllm_storage_dir` in `config.json` → platform default (macOS desktop: `~/Library/Application Support/anythingllm-desktop/storage/`; no default elsewhere). If the resolved path does not exist on disk, the storage section is silently skipped — `status` still prints the diff. We never write into the directory; only `stat` and walk.
+
+### What's reported
+
+For workspace `<workspace_prefix><collection>` and the set of `anythingllm_loc` values in our `uploads.db`:
+
+| name                      | scope              | how it's computed                                                                                  |
+|---------------------------|--------------------|----------------------------------------------------------------------------------------------------|
+| `documents`               | per-collection     | Sum of `stat().st_size` for each `<storage>/documents/<anythingllm_loc>` file in our uploads.db.   |
+| `lancedb`                 | per-workspace      | Recursive size of `<storage>/lancedb/<workspace_slug>.lance/` (the per-workspace vector tables).   |
+| `attributable`            | per-collection     | `documents + lancedb`. The number to compare against "what is this collection costing me?"        |
+| `vector_cache` (shared)   | global             | Recursive size of `<storage>/vector-cache/`. Reported as a shared total — see below.               |
+
+Per-document `vector-cache` attribution is intentionally **not** computed in v1. Cache filenames are UUID-v5 not derivable from the document id without reading each cache file's embedded `metadata.id`. The total is reported instead, flagged as shared across all workspaces.
+
+A `documents_missing` count surfaces any `uploads.db` row whose `anythingllm_loc` no longer exists on disk (e.g. the user deleted the document inside AnythingLLM's UI). It's informational; `status` does not reconcile.
+
+### Implementation pointer
+
+`src/ingest/storage.py` is the only place that knows AnythingLLM's on-disk layout. The status command consumes its `report(...)` helper; nothing else in the codebase reads from `<storage>`.
 
 ## Error model
 
