@@ -44,12 +44,21 @@ def test_create_list_info_multi_source(
     assert "collection: demo" in out
     assert "  - a:" in out and "  - b:" in out
     assert "pending queue: 0" in out
+    assert "storage:" in out and "output" in out
 
     assert run("--json", "info", "demo") == 0
     parsed = json.loads(capsys.readouterr().out)
     assert parsed["name"] == "demo"
     assert {s["name"] for s in parsed["sources"]} == {"a", "b"}
     assert parsed["pending_queue"] == 0
+    storage = parsed["storage_bytes"]
+    assert set(storage) == {"total", "output", "db", "log"}
+    assert all(isinstance(v, int) and v >= 0 for v in storage.values())
+    # state.db exists after create, so db size is positive and counted in total
+    assert storage["db"] > 0
+    assert storage["total"] >= storage["db"] + storage["output"]
+    for s in parsed["sources"]:
+        assert "output_bytes" in s and isinstance(s["output_bytes"], int)
 
 
 def test_create_rejects_duplicate(
@@ -97,3 +106,22 @@ def test_info_unknown_collection(
     assert rc == 1
     err = capsys.readouterr().err
     assert "not found" in err
+
+
+def test_info_reports_output_bytes(
+    app_support: Path, source_tree: Path, capsys: pytest.CaptureFixture[str]
+):
+    assert run("create", "demo", "--source", f"a={source_tree}", "--source", f"b={source_tree}") == 0
+    capsys.readouterr()
+
+    # Drop a file into one source's output dir to simulate written extractions.
+    payload = b"x" * 4096
+    (paths.source_output_dir("demo", "a") / "fake.md").write_bytes(payload)
+
+    assert run("--json", "info", "demo") == 0
+    parsed = json.loads(capsys.readouterr().out)
+    by_name = {s["name"]: s for s in parsed["sources"]}
+    assert by_name["a"]["output_bytes"] >= len(payload)
+    assert by_name["b"]["output_bytes"] == 0
+    assert parsed["storage_bytes"]["output"] >= len(payload)
+    assert parsed["storage_bytes"]["total"] >= parsed["storage_bytes"]["output"]

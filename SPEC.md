@@ -233,9 +233,13 @@ With `--json`, emit a structured array including each collection's sources.
 Detailed status of one collection:
 
 - Created-at timestamp, output directory.
-- Per-source breakdown: name, path, file counts by status.
+- Per-source breakdown: name, path, file counts by status, output size on disk.
 - Total file counts by status.
 - Pending transcription queue depth.
+- Storage usage: total bytes under the collection directory, with a breakdown
+  for the `output/` tree, `state.db`, and `extract.log`. Human output formats
+  these in IEC units (KiB/MiB/...); `--json` reports raw bytes under
+  `storage_bytes`.
 - Recent failures (last N, e.g. 10).
 - Suspicious transcripts (last N).
 
