@@ -21,6 +21,11 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 30
     steps:
+      - name: Checkout source
+        # Needed so the pip-cache step can hash pyproject.toml. Defaults to
+        # the tag's commit (github.ref) for tag-push events.
+        uses: actions/checkout@v4
+
       - name: Compute version, URL, sha256
         id: meta
         env:
@@ -53,6 +58,17 @@ jobs:
           repository: mschuerig/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           path: tap
+
+      - name: Restore pip wheel cache
+        # Reuse downloaded wheels (torch is ~2.5 GB) across releases.
+        # `restore-keys` falls back to an older cache when pyproject.toml
+        # changes, so the runner only downloads what actually changed.
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/pip
+          key: pip-${{ runner.os }}-${{ runner.arch }}-py3.12-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            pip-${{ runner.os }}-${{ runner.arch }}-py3.12-
 
       - name: Patch formula
         env:
