@@ -48,6 +48,12 @@ def cmd_update(args: argparse.Namespace) -> int:
 
     cfg = config.load_collection(args.name)
 
+    # Per-run override of the collection's persisted do_ocr setting.
+    # Mutate the in-memory cfg only; we never call save_collection here.
+    ocr_override = getattr(args, "do_ocr_override", None)
+    if ocr_override is not None:
+        cfg.do_ocr = ocr_override
+
     if args.source_name:
         if cfg.source(args.source_name) is None:
             raise config.ConfigError(

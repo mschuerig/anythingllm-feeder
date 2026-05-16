@@ -8,6 +8,7 @@ from ingest import config, log
 from ingest.anythingllm import (
     AnythingLLMClient,
     AnythingLLMError,
+    resolve_timeout,
 )
 
 _log = log.get_logger()
@@ -16,7 +17,10 @@ _log = log.get_logger()
 def cmd_check(args: argparse.Namespace) -> int:
     """Probe the local AnythingLLM and confirm the API key works."""
     try:
-        settings = config.resolve_settings()
+        settings = config.resolve_settings(
+            url_override=getattr(args, "url", None),
+            api_key_override=getattr(args, "api_key", None),
+        )
     except config.ConfigError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -27,7 +31,9 @@ def cmd_check(args: argparse.Namespace) -> int:
     }
     try:
         with AnythingLLMClient(
-            base_url=settings.base_url, api_key=settings.api_key
+            base_url=settings.base_url,
+            api_key=settings.api_key,
+            timeout=resolve_timeout(getattr(args, "http_timeout", None)),
         ) as client:
             client.auth_check()
             workspaces = client.list_workspaces()

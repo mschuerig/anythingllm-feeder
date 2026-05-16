@@ -289,6 +289,60 @@ def test_update_passes_do_ocr_from_config(
     assert captured == {"do_ocr": False}
 
 
+def test_update_no_ocr_flag_overrides_collection_config(
+    app_support: Path, tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    """--no-ocr forces OCR off even when the collection has do_ocr=true,
+    and must NOT persist back to config.json."""
+    src = tmp_path / "src"; src.mkdir()
+    (src / "a.md").write_text("hi")
+    _seed("demo", src)
+
+    # Collection config defaults to do_ocr=True.
+    assert config.load_collection("demo").do_ocr is True
+
+    captured: dict[str, bool] = {}
+    def fake_get_docling(*, do_ocr: bool):
+        captured["do_ocr"] = do_ocr
+        return FakeDocling()
+    monkeypatch.setattr(extractors, "get_docling", fake_get_docling)
+
+    capsys.readouterr()
+    rc = run("update", "demo", "--no-ocr")
+    assert rc == 0
+    assert captured == {"do_ocr": False}
+    # The persisted config is untouched.
+    assert config.load_collection("demo").do_ocr is True
+
+
+def test_update_ocr_flag_overrides_collection_config(
+    app_support: Path, tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    """--ocr forces OCR on even when the collection has do_ocr=false,
+    without writing back to config.json."""
+    src = tmp_path / "src"; src.mkdir()
+    (src / "a.md").write_text("hi")
+    _seed("demo", src)
+
+    cfg = config.load_collection("demo")
+    cfg.do_ocr = False
+    config.save_collection(cfg)
+
+    captured: dict[str, bool] = {}
+    def fake_get_docling(*, do_ocr: bool):
+        captured["do_ocr"] = do_ocr
+        return FakeDocling()
+    monkeypatch.setattr(extractors, "get_docling", fake_get_docling)
+
+    capsys.readouterr()
+    rc = run("update", "demo", "--ocr")
+    assert rc == 0
+    assert captured == {"do_ocr": True}
+    assert config.load_collection("demo").do_ocr is False
+
+
 def test_update_all(
     app_support: Path, tmp_path: Path,
     fake_docling: FakeDocling, capsys: pytest.CaptureFixture[str]

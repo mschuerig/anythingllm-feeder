@@ -64,11 +64,23 @@ Env overrides (env wins over config):
 | variable                    | purpose                                                       |
 |-----------------------------|---------------------------------------------------------------|
 | `ANYTHINGLLM_URL`           | Base URL of the local AnythingLLM server.                     |
-| `ANYTHINGLLM_API_KEY`       | **Required**. Bearer token (Settings → Developer).            |
+| `ANYTHINGLLM_API_KEY`       | **Required** unless `--api-key` / `--api-key-file` is given. Bearer token (Settings → Developer). |
 | `ANYTHINGLLM_STORAGE_DIR`   | AnythingLLM's `storage/` directory, for the storage report.   |
 | `INGEST_APP_SUPPORT`        | Override ingest's storage root (testing).                     |
 | `FORAGE_APP_SUPPORT`        | Read forage state from a non-default root (testing).          |
 | `INGEST_HTTP_TIMEOUT`       | Read/write timeout in seconds (default 300). Connect timeout is fixed at 5s. |
+
+Global CLI flags (accepted on any subcommand) that override the matching env var or config value:
+
+| flag                  | overrides                                                       |
+|-----------------------|-----------------------------------------------------------------|
+| `--url URL`           | `ANYTHINGLLM_URL` / `config.json:base_url`.                     |
+| `--api-key KEY`       | `ANYTHINGLLM_API_KEY`. Visible in shell history and `ps`; the CLI prints a one-line stderr note when used directly (suppressed under `-q`). Prefer `--api-key-file` for sensitive uses. |
+| `--api-key-file PATH` | Reads the key from `PATH` (trailing whitespace stripped). Errors if the file is missing or empty. Does not trigger the security note. |
+| `--storage-dir DIR`   | `ANYTHINGLLM_STORAGE_DIR` / `config.json:anythingllm_storage_dir`. |
+| `--http-timeout SEC`  | `INGEST_HTTP_TIMEOUT`. Connect timeout stays at 5 s.            |
+
+**Resolution precedence** (consistent for every value): CLI flag > env var > `config.json` value > built-in default.
 
 The API key is never persisted to disk. If unset when a network call is needed, the command fails with a clear message. `--dry-run` is the one exception: it tolerates a missing key because it does no I/O against the server.
 

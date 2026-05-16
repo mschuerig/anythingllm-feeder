@@ -187,3 +187,59 @@ def test_transcribe_dry_run(
     with db.open_db(paths.collection_db_path("demo")) as conn:
         assert db.queue_depth(conn, "pending") == 1
     assert fake_whisper.calls == []
+
+
+def test_whisper_model_flag_routes_to_distinct_extractor(
+    app_support: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """--whisper-model picks up a separate WhisperExtractor instance, cached
+    under the per-model tuple key, leaving the default-cache entry alone."""
+    src_root = tmp_path / "src"; src_root.mkdir()
+    _seed_video_in_queue("demo", src_root)
+
+    default_fake = FakeWhisper()
+    custom_fake = FakeWhisper()
+    monkeypatch.setattr(
+        extractors,
+        "_REGISTRY",
+        {
+            "mlx-whisper": default_fake,
+            ("mlx-whisper", "custom/model-v2"): custom_fake,
+        },
+    )
+
+    rc = run("transcribe", "demo", "--whisper-model", "custom/model-v2")
+    assert rc == 0
+    assert len(custom_fake.calls) == 1
+    assert default_fake.calls == []
+
+
+def test_global_config_whisper_model_is_honored(
+    app_support: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """When config.json's whisper_model differs from the built-in default,
+    transcribe routes through the per-model cache key (not the bare 'mlx-whisper'
+    string key). This guards against the pre-flag regression where the config
+    value was silently ignored."""
+    src_root = tmp_path / "src"; src_root.mkdir()
+    _seed_video_in_queue("demo", src_root)
+
+    config.save_global(
+        config.GlobalConfig(whisper_model="mlx-community/whisper-tiny")
+    )
+
+    default_fake = FakeWhisper()
+    configured_fake = FakeWhisper()
+    monkeypatch.setattr(
+        extractors,
+        "_REGISTRY",
+        {
+            "mlx-whisper": default_fake,
+            ("mlx-whisper", "mlx-community/whisper-tiny"): configured_fake,
+        },
+    )
+
+    rc = run("transcribe", "demo")
+    assert rc == 0
+    assert len(configured_fake.calls) == 1
+    assert default_fake.calls == []

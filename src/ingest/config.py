@@ -79,18 +79,33 @@ class Settings:
     api_key: str
 
 
-def resolve_settings() -> Settings:
-    """Resolve base URL and API key from config + env.
+def resolve_settings(
+    *,
+    url_override: str | None = None,
+    api_key_override: str | None = None,
+) -> Settings:
+    """Resolve base URL and API key.
 
-    Env vars override config. API key is required and never persisted to disk.
+    Precedence: explicit override (e.g. CLI flag) > env var > config.json >
+    built-in default. API key is required for any operation that contacts the
+    server, and is never persisted to disk.
     """
     cfg = load_global()
-    base_url = os.environ.get(ENV_BASE_URL, cfg.base_url).rstrip("/")
-    api_key = os.environ.get(ENV_API_KEY, "").strip()
+    base_url = (
+        url_override
+        if url_override is not None
+        else os.environ.get(ENV_BASE_URL, cfg.base_url)
+    ).rstrip("/")
+    api_key = (
+        api_key_override
+        if api_key_override is not None
+        else os.environ.get(ENV_API_KEY, "")
+    ).strip()
     if not api_key:
         raise ConfigError(
             f"{ENV_API_KEY} is not set. Generate a key in AnythingLLM "
-            "(Settings → Developer) and export it."
+            "(Settings → Developer) and export it, or pass --api-key / "
+            "--api-key-file."
         )
     return Settings(base_url=base_url, api_key=api_key)
 
@@ -106,20 +121,23 @@ def workspace_slug_for(collection: str) -> str:
     return collection
 
 
-def resolve_anythingllm_storage_dir() -> Path | None:
+def resolve_anythingllm_storage_dir(
+    *, override: str | None = None
+) -> Path | None:
     """Locate AnythingLLM's storage directory, or None if not findable.
 
     Resolution order:
 
-    1. ``ANYTHINGLLM_STORAGE_DIR`` environment variable, if set.
-    2. ``anythingllm_storage_dir`` in our global ``config.json``, if set.
-    3. The platform default from ``paths.default_anythingllm_storage_dir()``.
+    1. ``override`` argument (e.g. from a CLI flag), if set.
+    2. ``ANYTHINGLLM_STORAGE_DIR`` environment variable, if set.
+    3. ``anythingllm_storage_dir`` in our global ``config.json``, if set.
+    4. The platform default from ``paths.default_anythingllm_storage_dir()``.
 
     Returns the resolved path only if it exists on disk. Otherwise returns
     None, and callers (e.g. status reporting) should treat the feature as
     unavailable rather than failing the whole command.
     """
-    raw = os.environ.get(ENV_STORAGE_DIR)
+    raw = override or os.environ.get(ENV_STORAGE_DIR)
     if not raw:
         cfg = load_global()
         raw = cfg.anythingllm_storage_dir or None

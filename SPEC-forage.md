@@ -256,6 +256,7 @@ Options:
 - `--orphans list|delete|ignore` (default: `list`).
 - `--defer-video`: discover videos and enqueue them as `pending`, but skip inline transcription. Without this flag, videos are transcribed inline.
 - `--dry-run`: report what would happen, write nothing.
+- `--ocr` / `--no-ocr` (mutually exclusive): override the collection's persisted `do_ocr` setting for this run only. The value is not written back to `config.json`. Useful for a one-off pass without editing the file.
 
 Behavior for videos with `--defer-video`:
 - New/changed videos: insert into `files` with `status: pending`, insert into `queue` with `status: pending`. No transcription.
@@ -279,6 +280,7 @@ Options:
 - `--time-limit DURATION`: stop after DURATION (e.g. `4h`, `90m`, `3600s`).
 - `--retry-failed`: also process items with `status: failed` (default: skip them).
 - `--dry-run`: list what would be processed, do nothing.
+- `--whisper-model MODEL`: use this Hugging Face mlx-whisper model id for this run only, instead of the global `whisper_model` setting in `<app-support>/config.json`. The override is not written back. Resolution precedence: `--whisper-model` > `config.json:whisper_model` > built-in default (`mlx-community/whisper-large-v3-turbo`).
 
 Processes oldest-enqueued first. Updates both `queue` and `files` rows on completion or failure.
 

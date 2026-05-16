@@ -8,8 +8,25 @@ import time
 from pathlib import Path
 
 from forage import config, db, extractors, log, paths
+from forage.extractors import whisper as whisper_mod
 from forage.extractors.base import ExtractorError
 from forage.extractors.whisper import NoAudioStream
+
+
+def _resolve_whisper_model(args: argparse.Namespace) -> str | None:
+    """Pick the whisper model id for this run.
+
+    Precedence: --whisper-model > global config.json whisper_model > default.
+    Returns ``None`` to mean "use the extractor's built-in default" so the
+    default cache key stays ``"mlx-whisper"`` and existing test stubs work.
+    """
+    explicit = getattr(args, "whisper_model", None)
+    if explicit:
+        return explicit
+    configured = config.load_global().whisper_model
+    if configured and configured != whisper_mod.DEFAULT_MODEL:
+        return configured
+    return None
 from forage.locks import collection_lock
 from forage.output import output_relpath, write_atomic
 
@@ -65,6 +82,9 @@ def _drain(coll_name: str, args: argparse.Namespace) -> int:
     if args.time_limit:
         deadline = time.monotonic() + parse_duration(args.time_limit)
     limit: int | None = args.limit
+    whisper_model: str | None = _resolve_whisper_model(args)
+    if whisper_model is not None:
+        logger.info("using whisper model: %s", whisper_model)
 
     stats = {"done": 0, "failed": 0, "no_audio": 0, "suspicious": 0,
              "skipped": 0, "dry": 0}
@@ -98,7 +118,8 @@ def _drain(coll_name: str, args: argparse.Namespace) -> int:
                     row = rows[0]
                     source, rel = row["source"], row["path"]
                     result = transcribe_one(
-                        conn, cfg, source, rel, output_dir, logger
+                        conn, cfg, source, rel, output_dir, logger,
+                        whisper_model=whisper_model,
                     )
                     stats[result] = stats.get(result, 0) + 1
                     processed += 1
@@ -127,6 +148,8 @@ def transcribe_one(
     rel: str,
     output_dir: Path,
     logger,
+    *,
+    whisper_model: str | None = None,
 ) -> str:
     """Transcribe one queue entry. Updates `files` and `queue` rows.
 
@@ -155,7 +178,7 @@ def transcribe_one(
     logger.info("running  %s", rel_key)
 
     try:
-        extractor = extractors.get_extractor("mlx-whisper")
+        extractor = extractors.get_whisper(model=whisper_model)
         result = extractor.extract(src_abs)
     except NoAudioStream as e:
         finished = config.utc_now()

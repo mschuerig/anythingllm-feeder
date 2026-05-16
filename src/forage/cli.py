@@ -70,6 +70,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_update.add_argument("--defer-video", dest="defer_video", action="store_true")
     p_update.add_argument("--dry-run", dest="dry_run", action="store_true")
+    ocr = p_update.add_mutually_exclusive_group()
+    ocr.add_argument(
+        "--ocr",
+        dest="do_ocr_override",
+        action="store_const",
+        const=True,
+        help="force docling OCR on for this run (overrides the collection's do_ocr setting)",
+    )
+    ocr.add_argument(
+        "--no-ocr",
+        dest="do_ocr_override",
+        action="store_const",
+        const=False,
+        help="force docling OCR off for this run (overrides the collection's do_ocr setting)",
+    )
     _add_global_flags(p_update)
 
     p_tr = sub.add_parser("transcribe", help="drain transcription queue")
@@ -79,6 +94,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_tr.add_argument("--time-limit", dest="time_limit")
     p_tr.add_argument("--retry-failed", dest="retry_failed", action="store_true")
     p_tr.add_argument("--dry-run", dest="dry_run", action="store_true")
+    p_tr.add_argument(
+        "--whisper-model",
+        dest="whisper_model",
+        metavar="MODEL",
+        help=(
+            "Hugging Face mlx-whisper model id for this run "
+            "(overrides config.json's whisper_model)"
+        ),
+    )
     _add_global_flags(p_tr)
 
     p_repair = sub.add_parser("repair", help="check or rebuild state.db")

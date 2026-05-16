@@ -171,7 +171,9 @@ Each supports `-v`/`-q` and `--json` where useful.
 | `forage transcribe <name>` / `--all` | Drain the transcription queue. |
 | `forage repair <name>` | Read-only consistency check. Add `--rebuild` to regenerate `state.db` from disk. |
 
-Useful `update` flags: `--source <name>`, `--ext pdf,mp4`, `--orphans list|delete|ignore` (default `list`), `--defer-video`, `--dry-run`.
+Useful `update` flags: `--source <name>`, `--ext pdf,mp4`, `--orphans list|delete|ignore` (default `list`), `--defer-video`, `--dry-run`, `--ocr` / `--no-ocr` (force OCR on/off for this run without touching the collection's saved setting).
+
+`forage transcribe` also accepts `--whisper-model MODEL` to use a non-default Hugging Face mlx-whisper model id for a single run (otherwise the `whisper_model` value in `<forage-data-dir>/config.json` is used, falling back to the built-in default).
 
 ### Disabling OCR for a collection
 
@@ -247,6 +249,24 @@ forage update --all && ingest sync --all     # everything
 | `ingest reset <name> -y` | Delete ingest's local upload bookkeeping. Does **not** touch AnythingLLM. |
 
 Useful `sync` flags: `--include-suspicious`, `--keep-orphans`, `--dry-run`.
+
+### Connection flags (all ingest subcommands)
+
+Every `ingest` subcommand accepts the following global flags, which override the matching environment variable or `config.json` setting. Precedence is always **CLI flag > env var > `config.json` > built-in default**.
+
+| flag                  | replaces                                            |
+|-----------------------|-----------------------------------------------------|
+| `--url URL`           | `ANYTHINGLLM_URL` (default `http://localhost:3001`) |
+| `--api-key KEY`       | `ANYTHINGLLM_API_KEY` — prints a one-line stderr note since the key ends up in shell history and `ps`; use `--api-key-file` for sensitive runs |
+| `--api-key-file PATH` | same as `--api-key` but reads the key from a file (trailing whitespace trimmed); fails clearly if the file is missing or empty |
+| `--storage-dir DIR`   | `ANYTHINGLLM_STORAGE_DIR` (for the storage report)  |
+| `--http-timeout SEC`  | `INGEST_HTTP_TIMEOUT` (read/write timeout; default 300 s) |
+
+Useful for ad-hoc invocations against a non-default instance, for example:
+
+```sh
+ingest --url http://localhost:3010 --api-key-file ~/.config/anythingllm.key sync news
+```
 
 ### How ingest decides what to do
 

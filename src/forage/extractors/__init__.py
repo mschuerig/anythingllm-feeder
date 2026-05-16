@@ -39,20 +39,17 @@ _REGISTRY: dict = {}
 def get_extractor(name: str) -> Extractor:
     """Return a cached extractor instance by name.
 
-    For docling use `get_docling(do_ocr=…)` instead — it needs configuration
-    that doesn't fit a name-only lookup.
+    For docling use `get_docling(do_ocr=…)` instead, and for whisper use
+    `get_whisper(model=…)` — both need configuration that doesn't fit a
+    name-only lookup.
     """
     if name == "docling":
         # Default: OCR on. Callers wanting to honor per-collection config
         # should use `get_docling` instead.
         return get_docling(do_ocr=True)
-    if name not in _REGISTRY:
-        if name == "mlx-whisper":
-            from forage.extractors.whisper import WhisperExtractor
-            _REGISTRY[name] = WhisperExtractor()
-        else:
-            raise ExtractorError(f"unknown extractor: {name}")
-    return _REGISTRY[name]
+    if name == "mlx-whisper":
+        return get_whisper()
+    raise ExtractorError(f"unknown extractor: {name}")
 
 
 def get_docling(*, do_ocr: bool) -> Extractor:
@@ -65,6 +62,29 @@ def get_docling(*, do_ocr: bool) -> Extractor:
     if key not in _REGISTRY:
         from forage.extractors.docling import DoclingExtractor
         _REGISTRY[key] = DoclingExtractor(do_ocr=do_ocr)
+    return _REGISTRY[key]
+
+
+def get_whisper(model: str | None = None) -> Extractor:
+    """Return a cached WhisperExtractor.
+
+    Pass ``model`` to use a specific HF model id; otherwise the extractor's
+    built-in DEFAULT_MODEL is used.
+
+    The "default" case (``model is None``) is cached under the plain string
+    key ``"mlx-whisper"``, so test stubs that pre-populate ``_REGISTRY`` with
+    that key (the convention before per-model caching existed) keep working.
+    Explicit models are cached under ``("mlx-whisper", model)``.
+    """
+    if model is None:
+        key: object = "mlx-whisper"
+    else:
+        key = ("mlx-whisper", model)
+    if key not in _REGISTRY:
+        from forage.extractors.whisper import WhisperExtractor
+        _REGISTRY[key] = (
+            WhisperExtractor() if model is None else WhisperExtractor(model=model)
+        )
     return _REGISTRY[key]
 
 

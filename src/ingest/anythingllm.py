@@ -14,15 +14,21 @@ DEFAULT_CONNECT_TIMEOUT = 5.0
 DEFAULT_IO_TIMEOUT = 300.0
 
 
-def _default_timeout() -> httpx.Timeout:
+def resolve_timeout(io_timeout_override: float | None = None) -> httpx.Timeout:
     """Connect fast (fail loudly if server is down) but allow long reads.
 
     AnythingLLM's /document/raw-text endpoint chunks and embeds inline, so a
-    large manual can take minutes. Override the read/write ceiling with
-    INGEST_HTTP_TIMEOUT (seconds).
+    large manual can take minutes.
+
+    Precedence for the read/write ceiling: explicit override (e.g. CLI flag)
+    > ``INGEST_HTTP_TIMEOUT`` env var > built-in default (300 s). Connect and
+    pool timeouts are fixed at 5 s — server-down should always fail fast.
     """
-    raw = os.environ.get(ENV_HTTP_TIMEOUT, "").strip()
-    io_timeout = float(raw) if raw else DEFAULT_IO_TIMEOUT
+    if io_timeout_override is not None:
+        io_timeout = io_timeout_override
+    else:
+        raw = os.environ.get(ENV_HTTP_TIMEOUT, "").strip()
+        io_timeout = float(raw) if raw else DEFAULT_IO_TIMEOUT
     return httpx.Timeout(
         io_timeout,
         connect=DEFAULT_CONNECT_TIMEOUT,
@@ -99,7 +105,7 @@ class AnythingLLMClient:
                 "Authorization": f"Bearer {api_key}",
                 "Accept": "application/json",
             },
-            timeout=timeout if timeout is not None else _default_timeout(),
+            timeout=timeout if timeout is not None else resolve_timeout(),
             transport=transport,
         )
 

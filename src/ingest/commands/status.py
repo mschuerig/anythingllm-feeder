@@ -8,7 +8,10 @@ from ingest import config, forage_db, paths, state, storage, sync
 
 
 def _build_storage_report(
-    uploads: list[state.Upload], workspace_slug: str | None
+    uploads: list[state.Upload],
+    workspace_slug: str | None,
+    *,
+    storage_dir_override: str | None,
 ) -> storage.StorageReport | None:
     """Compute storage attribution if AnythingLLM's storage dir is findable.
 
@@ -18,7 +21,9 @@ def _build_storage_report(
     """
     if not uploads or not workspace_slug:
         return None
-    storage_dir = config.resolve_anythingllm_storage_dir()
+    storage_dir = config.resolve_anythingllm_storage_dir(
+        override=storage_dir_override
+    )
     if storage_dir is None:
         return None
     return storage.report(
@@ -76,7 +81,11 @@ def cmd_status(args: argparse.Namespace) -> int:
     diff = sync.compute_diff(forage_rows, prior)
 
     workspace_slug = prior[0].workspace_slug if prior else None
-    storage_report = _build_storage_report(prior, workspace_slug)
+    storage_report = _build_storage_report(
+        prior,
+        workspace_slug,
+        storage_dir_override=getattr(args, "storage_dir", None),
+    )
 
     if getattr(args, "as_json", False):
         payload: dict[str, object] = {
