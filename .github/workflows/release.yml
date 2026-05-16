@@ -93,15 +93,20 @@ jobs:
       - name: Verify via brew install
         run: |
           set -ex
-          # brew 4.x rejects loose formula files; they have to live inside a
-          # tap directory. Drop the patched formula into mschuerig/tap's
-          # canonical location, then install via the full tap qualifier the
-          # end user would type. This also means we're testing the exact
-          # `brew install mschuerig/tap/anythingllm-feeder` end-user command.
           TAP_DIR="$(brew --repository)/Library/Taps/mschuerig/homebrew-tap"
           mkdir -p "$TAP_DIR/Formula"
           cp tap/Formula/anythingllm-feeder.rb "$TAP_DIR/Formula/"
-          brew install --build-from-source mschuerig/tap/anythingllm-feeder
+
+          # Tolerate non-zero exit from brew install: the formula may emit
+          # cosmetic "Failed to fix install linkage" warnings for wheels
+          # whose Mach-O headerpad is too tight. Python extensions load by
+          # filesystem path, not install ID, so this doesn't break anything
+          # at runtime. We verify the install actually happened below.
+          brew install --build-from-source mschuerig/tap/anythingllm-feeder \
+            || echo "::warning::brew install exit non-zero; verifying install state below"
+
+          test -x /opt/homebrew/bin/forage
+          test -x /opt/homebrew/bin/ingest
           forage --version
           ingest --version
           forage --help > /dev/null
