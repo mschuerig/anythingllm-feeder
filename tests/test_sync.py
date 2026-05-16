@@ -218,6 +218,67 @@ def test_suspicious_upload_is_not_orphaned_when_flag_toggled_off(
     assert len(fake_server.documents) == 2
 
 
+def test_reconciles_untracked_remote_docs_on_sync(
+    ingest_home: Path,
+    forage_home: Path,
+    fake_server: FakeAnythingLLM,
+    client_factory,
+    make_forage_collection,
+) -> None:
+    """Simulate a previous sync where /document/raw-text completed
+    server-side but the response was lost (timeout). The doc exists in
+    AnythingLLM, isn't in our uploads.db, and must be removed by the
+    next sync before it gets duplicated."""
+    make_forage_collection("demo", _files_v1())
+    sync_collection("demo", client=client_factory())
+    assert len(fake_server.documents) == 3
+
+    # Stage a phantom: a forage:// doc for this collection that ingest
+    # never recorded locally (mimics the timeout-then-server-completed
+    # case). Use a different upload id so the location is distinct.
+    client = client_factory()
+    phantom = client.upload_raw_text(
+        text_content="ghost",
+        title="ghost",
+        doc_source="forage://demo/notes/ghost.md",
+    )
+    assert phantom.location in fake_server.documents
+    assert len(fake_server.documents) == 4
+
+    # Re-run sync. Phantom is reconciled away; no new uploads needed.
+    result = sync_collection("demo", client=client_factory())
+    assert result.reconciled == 1
+    assert result.uploaded == 0
+    assert result.unchanged == 3
+    assert phantom.location not in fake_server.documents
+    assert len(fake_server.documents) == 3
+
+
+def test_reconciliation_leaves_other_collections_alone(
+    ingest_home: Path,
+    forage_home: Path,
+    fake_server: FakeAnythingLLM,
+    client_factory,
+    make_forage_collection,
+) -> None:
+    """A forage:// doc tagged for collection 'other' must NOT be touched
+    when we sync collection 'demo'."""
+    make_forage_collection("demo", _files_v1())
+    sync_collection("demo", client=client_factory())
+
+    client = client_factory()
+    other = client.upload_raw_text(
+        text_content="x",
+        title="x",
+        doc_source="forage://other/s/a.md",
+    )
+    assert other.location in fake_server.documents
+
+    result = sync_collection("demo", client=client_factory())
+    assert result.reconciled == 0
+    assert other.location in fake_server.documents
+
+
 def test_failed_extraction_causes_orphan_deletion(
     ingest_home: Path,
     forage_home: Path,

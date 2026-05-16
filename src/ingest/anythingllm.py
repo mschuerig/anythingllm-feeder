@@ -1,12 +1,33 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
+import os
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from typing import Any
 
 import httpx
 
 API_PREFIX = "/api/v1"
+
+ENV_HTTP_TIMEOUT = "INGEST_HTTP_TIMEOUT"
+DEFAULT_CONNECT_TIMEOUT = 5.0
+DEFAULT_IO_TIMEOUT = 300.0
+
+
+def _default_timeout() -> httpx.Timeout:
+    """Connect fast (fail loudly if server is down) but allow long reads.
+
+    AnythingLLM's /document/raw-text endpoint chunks and embeds inline, so a
+    large manual can take minutes. Override the read/write ceiling with
+    INGEST_HTTP_TIMEOUT (seconds).
+    """
+    raw = os.environ.get(ENV_HTTP_TIMEOUT, "").strip()
+    io_timeout = float(raw) if raw else DEFAULT_IO_TIMEOUT
+    return httpx.Timeout(
+        io_timeout,
+        connect=DEFAULT_CONNECT_TIMEOUT,
+        pool=DEFAULT_CONNECT_TIMEOUT,
+    )
 
 
 class AnythingLLMError(Exception):
@@ -49,6 +70,19 @@ class UploadResult:
     title: str
 
 
+@dataclass(frozen=True)
+class DocumentEntry:
+    """A document AnythingLLM currently holds on disk.
+
+    `location` is the `<folder>/<name>` form that remove-documents accepts.
+    `doc_source` is whatever the uploader stamped in metadata.docSource; we
+    use it to recognize our own forage:// uploads.
+    """
+
+    location: str
+    doc_source: str | None
+
+
 class AnythingLLMClient:
     def __init__(
         self,
@@ -56,7 +90,7 @@ class AnythingLLMClient:
         base_url: str,
         api_key: str,
         transport: httpx.BaseTransport | None = None,
-        timeout: float = 30.0,
+        timeout: httpx.Timeout | float | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._client = httpx.Client(
@@ -65,7 +99,7 @@ class AnythingLLMClient:
                 "Authorization": f"Bearer {api_key}",
                 "Accept": "application/json",
             },
-            timeout=timeout,
+            timeout=timeout if timeout is not None else _default_timeout(),
             transport=transport,
         )
 
@@ -211,6 +245,20 @@ class AnythingLLMClient:
             json=body,
         )
 
+    def list_documents(self) -> Iterator[DocumentEntry]:
+        """Walk `GET /documents` and yield every leaf with its location.
+
+        AnythingLLM returns a nested `localFiles` tree rooted at the
+        `documents/` folder. Locations are reconstructed as
+        `<folder-name>/<file-name>` — the same form `upload_raw_text`
+        returns and `remove_documents` accepts.
+        """
+        data = self._request("GET", "/documents") or {}
+        root = data.get("localFiles") or {}
+        # The root is `documents/` itself; locations are relative to it.
+        for child in root.get("items") or ():
+            yield from _walk_documents(child, parent="")
+
     def remove_documents(self, locations: Iterable[str]) -> None:
         names = list(locations)
         if not names:
@@ -220,3 +268,16 @@ class AnythingLLMClient:
             "/system/remove-documents",
             json={"names": names},
         )
+
+
+def _walk_documents(node: Any, *, parent: str) -> Iterator[DocumentEntry]:
+    if not isinstance(node, dict):
+        return
+    name = node.get("name") or ""
+    if node.get("type") == "folder":
+        next_parent = f"{parent}/{name}" if parent else name
+        for child in node.get("items") or ():
+            yield from _walk_documents(child, parent=next_parent)
+        return
+    location = f"{parent}/{name}" if parent else name
+    yield DocumentEntry(location=location, doc_source=node.get("docSource"))

@@ -97,6 +97,7 @@ class FakeDoc:
     location: str
     title: str
     text: str
+    doc_source: str | None = None
 
 
 class FakeAnythingLLM:
@@ -150,7 +151,10 @@ class FakeAnythingLLM:
             self.next_doc_id += 1
             loc = f"custom-documents/anythingllm-{self.next_doc_id}.json"
             self.documents[loc] = FakeDoc(
-                location=loc, title=meta.get("title", ""), text=text
+                location=loc,
+                title=meta.get("title", ""),
+                text=text,
+                doc_source=meta.get("docSource"),
             )
             return httpx.Response(
                 200,
@@ -158,6 +162,36 @@ class FakeAnythingLLM:
                     "documents": [
                         {"location": loc, "title": meta.get("title", "")}
                     ]
+                },
+            )
+
+        if path == "/api/v1/documents" and method == "GET":
+            by_folder: dict[str, list[dict]] = {}
+            for loc, doc in self.documents.items():
+                folder, _, fname = loc.partition("/")
+                by_folder.setdefault(folder, []).append(
+                    {
+                        "name": fname,
+                        "type": "file",
+                        "title": doc.title,
+                        "docSource": doc.doc_source,
+                    }
+                )
+            return httpx.Response(
+                200,
+                json={
+                    "localFiles": {
+                        "name": "documents",
+                        "type": "folder",
+                        "items": [
+                            {
+                                "name": folder,
+                                "type": "folder",
+                                "items": items,
+                            }
+                            for folder, items in by_folder.items()
+                        ],
+                    }
                 },
             )
 

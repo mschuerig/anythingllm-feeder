@@ -26,6 +26,7 @@ class SyncResult:
     orphans_deleted: int = 0
     orphans_kept: int = 0
     failed: int = 0
+    reconciled: int = 0
 
 
 def compute_diff(
@@ -152,6 +153,10 @@ def sync_collection(
         ws = client.ensure_workspace(slug, display_name=slug)
         _log.debug("workspace: slug=%s name=%s", ws.slug, ws.name)
 
+        result.reconciled = _reconcile_remote(
+            collection, client=client, known_locs={u.anythingllm_loc for u in prior_uploads}
+        )
+
         for row in diff.new:
             try:
                 _upload_one(
@@ -213,6 +218,38 @@ def sync_collection(
                 result.failed += 1
 
         return result
+
+
+def _reconcile_remote(
+    collection: str,
+    *,
+    client: AnythingLLMClient,
+    known_locs: set[str],
+) -> int:
+    """Delete forage:// documents AnythingLLM holds that we don't track.
+
+    These typically come from a previous run where /document/raw-text
+    completed server-side after our HTTP client gave up — the server kept
+    the document; we never recorded it. Re-running sync would otherwise
+    upload a fresh copy alongside it.
+    """
+    prefix = f"forage://{collection}/"
+    stale: list[str] = []
+    for entry in client.list_documents():
+        if not entry.doc_source or not entry.doc_source.startswith(prefix):
+            continue
+        if entry.location in known_locs:
+            continue
+        stale.append(entry.location)
+    if not stale:
+        return 0
+    client.remove_documents(stale)
+    _log.info(
+        "reconciled %d untracked remote doc(s) for collection %s",
+        len(stale),
+        collection,
+    )
+    return len(stale)
 
 
 def _upload_one(

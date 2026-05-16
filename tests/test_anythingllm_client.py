@@ -83,3 +83,19 @@ def test_remove_documents(fake_server, client_factory) -> None:
     client.remove_documents([r.location])
     assert r.location not in fake_server.documents
     assert r.location not in fake_server.embeddings["forage-demo"]
+
+
+def test_list_documents_surfaces_locations_and_doc_source(
+    fake_server, client_factory
+) -> None:
+    client = client_factory()
+    r1 = client.upload_raw_text(
+        text_content="x", title="x", doc_source="forage://demo/s/a.md"
+    )
+    r2 = client.upload_raw_text(text_content="y", title="y")  # no docSource
+    entries = list(client.list_documents())
+    by_loc = {e.location: e for e in entries}
+    assert r1.location in by_loc
+    assert by_loc[r1.location].doc_source == "forage://demo/s/a.md"
+    assert r2.location in by_loc
+    assert by_loc[r2.location].doc_source is None

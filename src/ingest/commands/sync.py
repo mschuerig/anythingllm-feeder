@@ -49,13 +49,14 @@ def _sync_one(
 
     _log.info(
         "%s: uploaded=%d changed=%d unchanged=%d orphans_deleted=%d "
-        "orphans_kept=%d failed=%d",
+        "orphans_kept=%d reconciled=%d failed=%d",
         name,
         result.uploaded,
         result.changed,
         result.unchanged,
         result.orphans_deleted,
         result.orphans_kept,
+        result.reconciled,
         result.failed,
     )
     return 0 if result.failed == 0 else 2

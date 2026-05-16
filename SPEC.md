@@ -69,6 +69,7 @@ Env overrides (env wins over config):
 | `ANYTHINGLLM_STORAGE_DIR`   | AnythingLLM's `storage/` directory, for the storage report.   |
 | `INGEST_APP_SUPPORT`        | Override ingest's storage root (testing).                     |
 | `FORAGE_APP_SUPPORT`        | Read forage state from a non-default root (testing).          |
+| `INGEST_HTTP_TIMEOUT`       | Read/write timeout in seconds (default 300). Connect timeout is fixed at 5s. |
 
 The API key is never persisted to disk. If unset when a network call is needed, the command fails with a clear message. `--dry-run` is the one exception: it tolerates a missing key because it does no I/O against the server.
 
@@ -137,19 +138,20 @@ For each invocation of `ingest sync <collection>`:
    - **orphan** — in `uploads`; key is in neither `in_scope` nor `keep_alive`. These are documents forage no longer trusts (status flipped to `failed`/`pending`/`no_audio`, or the source file was deleted).
 5. **If `--dry-run`** — log the diff (one line per item under verbose) and return. No HTTP, no state writes.
 6. **Ensure workspace.** `GET /api/v1/workspaces`; if no slug matches `<prefix><collection>`, `POST /api/v1/workspace/new {"name": "<prefix><collection>"}`.
-7. **For each `new` row:**
+7. **Reconcile remote.** `GET /api/v1/documents`. For every leaf whose `docSource` starts with `forage://<collection>/` but whose `location` is **not** in our `uploads` table, `DELETE /api/v1/system/remove-documents`. This removes phantom documents from a previous run where the upload completed server-side after our HTTP client timed out — without this pass, the next sync would treat them as `new` and create duplicates. Other collections' `forage://` documents are not touched.
+8. **For each `new` row:**
    - Read the `.md` file at `<forage-app-support>/collections/<name>/output/<output_path>`.
    - `POST /api/v1/document/raw-text` with the body above. Capture `documents[0].location`.
    - `POST /api/v1/workspace/<slug>/update-embeddings {"adds": [location]}`.
    - Insert a row into `uploads`.
-8. **For each `changed` (row, prior) pair:**
+9. **For each `changed` (row, prior) pair:**
    - `POST /api/v1/workspace/<slug>/update-embeddings {"deletes": [prior.location]}`.
    - `DELETE /api/v1/system/remove-documents {"names": [prior.location]}`.
-   - Upload + embed the new version as in step 7. Upsert (replace) the `uploads` row.
-9. **For each `orphan` upload:**
-   - If `--keep-orphans`: log and skip.
-   - Else: same delete sequence as the "changed" pre-step, then `DELETE FROM uploads`.
-10. **Summarize.** Per-collection counts of `uploaded`, `changed`, `unchanged`, `orphans_deleted`, `orphans_kept`, `failed`. Exit code is `0` iff `failed == 0`.
+   - Upload + embed the new version as in step 8. Upsert (replace) the `uploads` row.
+10. **For each `orphan` upload:**
+    - If `--keep-orphans`: log and skip.
+    - Else: same delete sequence as the "changed" pre-step, then `DELETE FROM uploads`.
+11. **Summarize.** Per-collection counts of `uploaded`, `changed`, `unchanged`, `orphans_deleted`, `orphans_kept`, `reconciled`, `failed`. Exit code is `0` iff `failed == 0`.
 
 Per-document failures are caught and counted; the sync continues for the remaining documents. `ForageStateError`, `ServerUnreachable`, and `AuthError` are *not* per-document — they abort the run immediately.
 
@@ -285,3 +287,4 @@ Console output mirrors the file at INFO by default; `-v` raises it to DEBUG, `-q
 10. **Server down.** Stop the AnythingLLM service. `ingest sync demo` exits 1 with `error: AnythingLLM not reachable at <URL> — is the service running? ...` and `uploads.db` is unchanged.
 11. **Bad key.** Run with a wrong API key. The first auth-required request returns 401; the command exits 1 with the "Generate a fresh key" hint.
 12. **Reset.** `ingest reset demo -y` deletes `uploads.db`. The next `ingest sync demo` re-uploads everything as `new`, producing duplicates in AnythingLLM (documented; that's why the command requires `-y`).
+13. **Reconciliation.** A previous sync's `raw-text` upload completed on the server *after* our HTTP timeout fired, so the document exists in AnythingLLM with `docSource = forage://demo/...` but no row in `uploads.db`. The next `ingest sync demo` lists `/api/v1/documents`, finds the untracked entry, and removes it before processing the diff. Re-uploading the same forage row as `new` then produces exactly one remote copy (not two). Forage:// documents tagged for other collections are not touched.
