@@ -112,6 +112,32 @@ def test_integrity_check(tmp_path: Path):
         assert db.integrity_check(conn) == ["ok"]
 
 
+def test_reset_running_to_pending(tmp_path: Path):
+    p = make_db(tmp_path)
+    with db.open_db(p) as conn:
+        db.upsert_file(conn, db.FileRow(source="a", path="x.mp4", status="pending"))
+        db.upsert_file(conn, db.FileRow(source="a", path="y.mp4", status="pending"))
+        db.upsert_file(conn, db.FileRow(source="a", path="z.mp4", status="pending"))
+        db.enqueue(conn, "a", "x.mp4", "2026-05-14T00:00:00Z")
+        db.enqueue(conn, "a", "y.mp4", "2026-05-14T00:00:00Z")
+        db.enqueue(conn, "a", "z.mp4", "2026-05-14T00:00:00Z")
+        db.update_queue(conn, "a", "x.mp4", "running",
+                        started_at="2026-05-14T00:00:01Z")
+        db.update_queue(conn, "a", "y.mp4", "running",
+                        started_at="2026-05-14T00:00:02Z")
+
+        assert db.reset_running_to_pending(conn) == 2
+        # idempotent
+        assert db.reset_running_to_pending(conn) == 0
+
+        assert db.queue_depth(conn, "running") == 0
+        assert db.queue_depth(conn, "pending") == 3
+        row = conn.execute(
+            "SELECT started_at FROM queue WHERE source = 'a' AND path = 'x.mp4'"
+        ).fetchone()
+        assert row["started_at"] is None
+
+
 def test_reset_db(tmp_path: Path):
     p = make_db(tmp_path)
     with db.open_db(p) as conn:

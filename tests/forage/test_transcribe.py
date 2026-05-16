@@ -214,6 +214,94 @@ def test_whisper_model_flag_routes_to_distinct_extractor(
     assert default_fake.calls == []
 
 
+def test_stale_running_rows_are_requeued_on_next_run(
+    app_support: Path, tmp_path: Path,
+    fake_whisper: FakeWhisper, capsys: pytest.CaptureFixture[str]
+):
+    """A prior crash mid-transcription leaves a 'running' row. The next
+    transcribe must flip it back to 'pending' and process it."""
+    src_root = tmp_path / "src"; src_root.mkdir()
+    _seed_video_in_queue("demo", src_root)
+    # Simulate the prior-crash state: row marked 'running', no output written.
+    with db.open_db(paths.collection_db_path("demo")) as conn:
+        db.update_queue(conn, "src", "clip.mp4", "running",
+                        started_at=config.utc_now())
+        assert db.queue_depth(conn, "running") == 1
+        assert db.queue_depth(conn, "pending") == 0
+    capsys.readouterr()
+
+    rc = run("transcribe", "demo")
+    assert rc == 0
+    assert "done=1" in capsys.readouterr().out
+    assert fake_whisper.calls, "extractor should have been invoked on the requeued item"
+    with db.open_db(paths.collection_db_path("demo")) as conn:
+        assert db.queue_depth(conn, "running") == 0
+        assert db.queue_depth(conn, "pending") == 0
+        assert db.queue_depth(conn, "done") == 1
+
+
+def test_ctrl_c_during_extract_requeues_current_item(
+    app_support: Path, tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    """KeyboardInterrupt raised from the extractor must leave the row
+    re-queued as 'pending' (not stuck in 'running'), and propagate to the CLI
+    which exits 130."""
+    src_root = tmp_path / "src"; src_root.mkdir()
+    def boom(src):
+        raise KeyboardInterrupt
+    fake = FakeWhisper(behavior=boom)
+    monkeypatch.setattr(extractors, "_REGISTRY", {"mlx-whisper": fake})
+    _seed_video_in_queue("demo", src_root)
+    capsys.readouterr()
+
+    rc = run("transcribe", "demo")
+    assert rc == 130
+    with db.open_db(paths.collection_db_path("demo")) as conn:
+        assert db.queue_depth(conn, "running") == 0
+        assert db.queue_depth(conn, "pending") == 1
+        row = conn.execute(
+            "SELECT started_at FROM queue WHERE source='src' AND path='clip.mp4'"
+        ).fetchone()
+        assert row["started_at"] is None
+
+    # The next run picks it up cleanly.
+    monkeypatch.setattr(extractors, "_REGISTRY", {"mlx-whisper": FakeWhisper()})
+    rc = run("transcribe", "demo")
+    assert rc == 0
+    assert "done=1" in capsys.readouterr().out
+
+
+def test_ctrl_c_stops_all_fanout(
+    app_support: Path, tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    """With --all, a Ctrl-C in the first collection must stop the fan-out
+    instead of starting the next collection."""
+    src_a = tmp_path / "a"; src_a.mkdir()
+    src_b = tmp_path / "b"; src_b.mkdir()
+    _seed_video_in_queue("alpha", src_a)
+    _seed_video_in_queue("beta", src_b)
+
+    seen: list[Path] = []
+    def boom(src):
+        seen.append(src)
+        raise KeyboardInterrupt
+    monkeypatch.setattr(
+        extractors, "_REGISTRY",
+        {"mlx-whisper": FakeWhisper(behavior=boom)},
+    )
+
+    rc = run("transcribe", "--all")
+    assert rc == 130
+    # Only the first collection's item was attempted.
+    assert len(seen) == 1
+    # Second collection's pending item is untouched.
+    with db.open_db(paths.collection_db_path("beta")) as conn:
+        assert db.queue_depth(conn, "pending") == 1
+        assert db.queue_depth(conn, "running") == 0
+
+
 def test_global_config_whisper_model_is_honored(
     app_support: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ):

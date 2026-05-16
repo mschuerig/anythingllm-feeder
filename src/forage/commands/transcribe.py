@@ -89,9 +89,16 @@ def _drain(coll_name: str, args: argparse.Namespace) -> int:
     stats = {"done": 0, "failed": 0, "no_audio": 0, "suspicious": 0,
              "skipped": 0, "dry": 0}
 
+    processed = 0
     try:
         with collection_lock(paths.collection_lock_path(coll_name)), \
                 db.open_db(db_path) as conn:
+            requeued = db.reset_running_to_pending(conn)
+            if requeued:
+                logger.info(
+                    "requeued %d stale 'running' entries from a prior run",
+                    requeued,
+                )
             if args.dry_run:
                 # Read-only: list pending entries (and failed if requested).
                 rows = db.dequeue_oldest(
@@ -103,26 +110,32 @@ def _drain(coll_name: str, args: argparse.Namespace) -> int:
                     print(f"[dry-run] would transcribe {row['source']}/{row['path']}")
                     stats["dry"] += 1
             else:
-                processed = 0
-                while True:
-                    if limit is not None and processed >= limit:
-                        break
-                    if deadline is not None and time.monotonic() > deadline:
-                        logger.info("time limit reached after %d items", processed)
-                        break
-                    rows = db.dequeue_oldest(
-                        conn, limit=1, include_failed=args.retry_failed
+                try:
+                    while True:
+                        if limit is not None and processed >= limit:
+                            break
+                        if deadline is not None and time.monotonic() > deadline:
+                            logger.info("time limit reached after %d items", processed)
+                            break
+                        rows = db.dequeue_oldest(
+                            conn, limit=1, include_failed=args.retry_failed
+                        )
+                        if not rows:
+                            break
+                        row = rows[0]
+                        source, rel = row["source"], row["path"]
+                        result = transcribe_one(
+                            conn, cfg, source, rel, output_dir, logger,
+                            whisper_model=whisper_model,
+                        )
+                        stats[result] = stats.get(result, 0) + 1
+                        processed += 1
+                except KeyboardInterrupt:
+                    logger.warning(
+                        "interrupted after %d items; pending items will resume on next run",
+                        processed,
                     )
-                    if not rows:
-                        break
-                    row = rows[0]
-                    source, rel = row["source"], row["path"]
-                    result = transcribe_one(
-                        conn, cfg, source, rel, output_dir, logger,
-                        whisper_model=whisper_model,
-                    )
-                    stats[result] = stats.get(result, 0) + 1
-                    processed += 1
+                    raise
     finally:
         logger.info(
             "transcribe %s done: done=%d suspicious=%d no_audio=%d failed=%d "
@@ -180,6 +193,10 @@ def transcribe_one(
     try:
         extractor = extractors.get_whisper(model=whisper_model)
         result = extractor.extract(src_abs)
+    except KeyboardInterrupt:
+        db.reset_running_to_pending(conn)
+        logger.warning("interrupted %s; requeued for next run", rel_key)
+        raise
     except NoAudioStream as e:
         finished = config.utc_now()
         prior = db.get_file(conn, source, rel) or db.FileRow(

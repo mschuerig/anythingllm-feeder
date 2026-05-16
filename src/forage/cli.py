@@ -187,6 +187,9 @@ def main(argv: list[str] | None = None) -> int:
     except CollectionLocked as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
+    except KeyboardInterrupt:
+        print("interrupted", file=sys.stderr)
+        return 130
 
 
 if __name__ == "__main__":

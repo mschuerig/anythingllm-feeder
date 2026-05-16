@@ -248,6 +248,21 @@ def update_queue(
         )
 
 
+def reset_running_to_pending(conn: sqlite3.Connection) -> int:
+    """Flip any stale ``running`` queue rows back to ``pending``.
+
+    Called under the collection lock at the start of a transcribe run: anything
+    still marked ``running`` must be from a process that died (Ctrl-C, kill,
+    power loss) without updating the row, so the file is safe to re-pick.
+    """
+    with conn:
+        cur = conn.execute(
+            "UPDATE queue SET status = 'pending', started_at = NULL "
+            "WHERE status = 'running'"
+        )
+        return cur.rowcount
+
+
 def dequeue_oldest(
     conn: sqlite3.Connection,
     *,
