@@ -5,6 +5,7 @@ description = "Extract documents and videos to Markdown (forage) and upload them
 requires-python = ">=3.11"
 authors = [{ name = "Michael Schuerig", email = "michael@schuerig.de" }]
 readme = "README.md"
+license = { file = "LICENSE" }
 dependencies = ["httpx>=0.27"]
 
 [project.optional-dependencies]
