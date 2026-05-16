@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+.uv/
+build/
+dist/
+.DS_Store
+.claude/settings.local.json
