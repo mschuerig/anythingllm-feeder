@@ -77,12 +77,15 @@ jobs:
       - name: Verify via brew install
         run: |
           set -e
-          # Absolute path so brew treats it as a local formula file. A
-          # relative path containing slashes (`tap/Formula/...`) would be
-          # parsed as a `<tap>/<formula>` reference and brew would try to
-          # clone a non-existent github.com/tap/homebrew-Formula tap.
-          FORMULA="$GITHUB_WORKSPACE/tap/Formula/anythingllm-feeder.rb"
-          brew install --build-from-source --formula "$FORMULA"
+          # brew 4.x rejects loose formula files; they have to live inside a
+          # tap directory. Drop the patched formula into mschuerig/tap's
+          # canonical location, then install via the full tap qualifier the
+          # end user would type. This also means we're testing the exact
+          # `brew install mschuerig/tap/anythingllm-feeder` end-user command.
+          TAP_DIR="$(brew --repository)/Library/Taps/mschuerig/homebrew-tap"
+          mkdir -p "$TAP_DIR/Formula"
+          cp tap/Formula/anythingllm-feeder.rb "$TAP_DIR/Formula/"
+          brew install --build-from-source mschuerig/tap/anythingllm-feeder
           forage --version
           ingest --version
           forage --help > /dev/null
