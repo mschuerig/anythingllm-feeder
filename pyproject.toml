@@ -26,4 +26,4 @@ packages = ["src/_shared", "src/forage", "src/ingest"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra"
+addopts = "-ra --import-mode=importlib"
