@@ -24,6 +24,38 @@ Both tools are developed on **macOS (Apple Silicon)** and tested there. **Linux*
 
 ---
 
+## Why text-only uploads?
+
+AnythingLLM can ingest PDFs, Office documents, audio, and video directly via its built-in collector — you don't strictly need anything-llm-feeder to use it. This pipeline deliberately extracts to Markdown first and uploads only the text. The trade-off, with eyes open:
+
+**What you gain by going through forage:**
+
+- **Better extraction for the common cases.** docling (PDF/Office) and mlx-whisper (audio/video) are purpose-built; AnythingLLM's collector is a generalist. For complex PDFs and long audio, the Markdown ends up cleaner.
+- **Hallucination filtering.** Whisper invents plausible-sounding text when there's nothing to transcribe. forage runs sanity checks and flags suspect transcripts as `suspicious`, kept out of AnythingLLM unless you opt in with `--include-suspicious`.
+- **Cheap re-embedding.** When you switch embedding models inside AnythingLLM (which is exactly when this trade-off matters), only the Markdown needs to be re-embedded — no re-parsing PDFs, no re-transcribing hour-long videos.
+- **Incremental sync is fast.** ingest compares forage's SHA-256 hashes against `uploads.db`; payloads over the wire are small text bodies, not whole files.
+- **Big files never leave the machine.** A 2 GB video stays on disk; only its transcript travels to AnythingLLM.
+- **You can hand-edit before upload.** The Markdown under `<forage-data-dir>/collections/<name>/output/` is plain text; remove a junk preamble or fix a misheard name and re-run `ingest sync`. AnythingLLM picks up the change via sha256.
+- **Originals stay yours.** AnythingLLM holds only derived text plus a `forage://<collection>/<source>/<path>` pointer. If you ever migrate to a different RAG backend, your source folders are untouched and forage's output is portable Markdown.
+
+**What you give up:**
+
+- **No original-file preview in AnythingLLM.** The workspace shows the Markdown text only. There's no "open the PDF" button, no video player, no in-place page citations.
+- **Lossy extraction.** Images embedded in PDFs come through only as OCR'd text (and only if OCR ran); complex tables can flatten to bulleted lists; equations may break. AnythingLLM never sees the layout.
+- **Re-tuning extraction means re-extracting.** Change docling's OCR settings or upgrade whisper to a different model and you have to `forage update` everything to benefit. With direct upload, AnythingLLM's parser improvements apply on next collection re-parse.
+- **Two tools, two state directories.** More moving parts than dragging a PDF onto AnythingLLM's UI.
+- **The hallucination filter is heuristic.** Real transcripts occasionally get flagged. You'll sometimes want `ingest sync --include-suspicious` and a manual look.
+
+**When direct upload via AnythingLLM's UI makes more sense:**
+
+- One-off documents you want AnythingLLM to keep as referenceable artifacts (with the PDF viewable in the UI).
+- Documents where the original layout — not just the text — is the point (legal contracts, formatted financial reports).
+- You're trying AnythingLLM out and don't want to install anything else first.
+
+For everything else — especially a growing knowledge base of mixed PDFs and long audio/video — text-only via forage is the cheaper, faster, more controllable path.
+
+---
+
 ## Install
 
 You'll install three things: **AnythingLLM** (only needed if you want to use `ingest`), **ffmpeg** (only needed for `forage`'s video features), and **Python 3.11+** with **uv** (a fast Python package manager).
