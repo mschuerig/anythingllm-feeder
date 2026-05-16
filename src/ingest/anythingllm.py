@@ -269,6 +269,37 @@ class AnythingLLMClient:
             json={"names": names},
         )
 
+    def create_folder(self, name: str) -> None:
+        """Create a documents folder. Idempotent.
+
+        AnythingLLM returns HTTP 500 with ``"Folder by that name already
+        exists"`` when the folder is already present. We swallow that case so
+        callers can treat the call as "ensure".
+        """
+        try:
+            self._request(
+                "POST", "/document/create-folder", json={"name": name}
+            )
+        except RemoteError as exc:
+            if "already exists" in exc.body.lower():
+                return
+            raise
+
+    def move_files(self, pairs: Iterable[tuple[str, str]]) -> None:
+        """Move documents within AnythingLLM's documents tree.
+
+        Each pair is ``(from_location, to_location)`` with locations in the
+        ``<folder>/<file>.json`` form returned by :meth:`upload_raw_text`.
+
+        IMPORTANT: AnythingLLM's move endpoint silently skips any file that is
+        already embedded in a workspace. Always move BEFORE calling
+        :meth:`embed_documents`.
+        """
+        files = [{"from": src, "to": dst} for src, dst in pairs]
+        if not files:
+            return
+        self._request("POST", "/document/move-files", json={"files": files})
+
 
 def _walk_documents(node: Any, *, parent: str) -> Iterator[DocumentEntry]:
     if not isinstance(node, dict):

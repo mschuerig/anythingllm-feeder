@@ -153,7 +153,7 @@ Whisper sometimes hallucinates. forage runs sanity checks (repetition, "thanks f
 
 ## ingest — quick start
 
-Once you have a forage collection, `ingest` uploads it into AnythingLLM. It creates one workspace per collection (named `forage-<collection>` by default).
+Once you have a forage collection, `ingest` uploads it into AnythingLLM. It creates one workspace per collection (named after the collection), and one **documents folder per source** named `<collection>-<source>` so files stay organized inside AnythingLLM's `storage/documents/` tree instead of piling up under `custom-documents/`.
 
 ### First sync
 
@@ -187,7 +187,7 @@ Once you have a forage collection, `ingest` uploads it into AnythingLLM. It crea
    ingest sync news
    ```
 
-   ingest creates a `forage-news` workspace, uploads each `.md` as a document, and embeds them. Final summary:
+   ingest creates a `news` workspace, uploads each `.md` as a document into a per-source folder (e.g. `news-archive/`), and embeds them. Final summary:
 
    ```
    news: uploaded=42 changed=0 unchanged=0 orphans_deleted=0 orphans_kept=0 failed=0

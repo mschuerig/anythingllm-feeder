@@ -29,15 +29,15 @@ def test_first_sync_uploads_everything(
     assert result.uploaded == 3
     assert result.unchanged == 0
     assert result.failed == 0
-    assert "forage-demo" in fake_server.workspaces
+    assert "demo" in fake_server.workspaces
     assert len(fake_server.documents) == 3
-    assert len(fake_server.embeddings["forage-demo"]) == 3
+    assert len(fake_server.embeddings["demo"]) == 3
 
     # Local state mirrors what's remote.
     with state.open_db(paths.uploads_db_path("demo")) as conn:
         rows = list(state.iter_uploads(conn))
         assert {r.path for r in rows} == {"a.md", "b.md", "c.md"}
-        assert all(r.workspace_slug == "forage-demo" for r in rows)
+        assert all(r.workspace_slug == "demo" for r in rows)
 
 
 def test_second_sync_is_idempotent(
@@ -89,7 +89,7 @@ def test_changed_file_replaces_remote_doc(
     assert len(new_locations) == 3
     assert old_locations - new_locations  # something was removed
     # And the replacement is embedded.
-    assert new_locations == fake_server.embeddings["forage-demo"]
+    assert new_locations == fake_server.embeddings["demo"]
 
 
 def test_orphan_is_deleted_by_default(
@@ -277,6 +277,70 @@ def test_reconciliation_leaves_other_collections_alone(
     result = sync_collection("demo", client=client_factory())
     assert result.reconciled == 0
     assert other.location in fake_server.documents
+
+
+def test_uploads_land_in_per_source_folder(
+    ingest_home: Path,
+    forage_home: Path,
+    fake_server: FakeAnythingLLM,
+    client_factory,
+    make_forage_collection,
+) -> None:
+    """Sync must move each upload from custom-documents/ into a folder
+    named {workspace_slug}-{source} before embedding it."""
+    files = [
+        FakeForageFile("notes", "a.md", "HA", "ok", "notes/a.md"),
+        FakeForageFile("notes", "b.md", "HB", "ok", "notes/b.md"),
+        FakeForageFile("drafts", "x.md", "HX", "ok", "drafts/x.md"),
+    ]
+    make_forage_collection("demo", files)
+
+    result = sync_collection("demo", client=client_factory())
+    assert result.uploaded == 3
+
+    # Every document now lives under its per-source folder, not in
+    # custom-documents/.
+    for loc in fake_server.documents:
+        assert not loc.startswith("custom-documents/")
+    folders = {loc.split("/", 1)[0] for loc in fake_server.documents}
+    assert folders == {"demo-notes", "demo-drafts"}
+
+    # And the embeddings reference the moved locations, not the original
+    # custom-documents/ ones.
+    assert fake_server.embeddings["demo"] == set(
+        fake_server.documents.keys()
+    )
+
+    # uploads.db points at the new locations too.
+    with state.open_db(paths.uploads_db_path("demo")) as conn:
+        rows = list(state.iter_uploads(conn))
+        assert all(
+            r.anythingllm_loc.startswith("demo-")
+            for r in rows
+        )
+
+
+def test_target_folder_created_once_per_source_per_run(
+    ingest_home: Path,
+    forage_home: Path,
+    fake_server: FakeAnythingLLM,
+    client_factory,
+    make_forage_collection,
+) -> None:
+    """Each (collection, source) folder is created at most once per sync,
+    even with many uploads going into it."""
+    files = [
+        FakeForageFile("notes", f"f{i}.md", f"H{i}", "ok", f"notes/f{i}.md")
+        for i in range(5)
+    ]
+    make_forage_collection("demo", files)
+    sync_collection("demo", client=client_factory())
+
+    create_calls = [
+        p for m, p in fake_server.request_log
+        if m == "POST" and p == "/api/v1/document/create-folder"
+    ]
+    assert len(create_calls) == 1  # one source → one create-folder call
 
 
 def test_failed_extraction_causes_orphan_deletion(

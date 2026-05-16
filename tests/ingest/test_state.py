@@ -14,7 +14,7 @@ def test_init_and_roundtrip(tmp_path: Path) -> None:
             path="a.md",
             sha256="HASH",
             anythingllm_loc="custom-documents/x.json",
-            workspace_slug="forage-c",
+            workspace_slug="c",
             uploaded_at="2026-05-15T00:00:00Z",
             forage_status="ok",
         )
@@ -28,7 +28,7 @@ def test_init_and_roundtrip(tmp_path: Path) -> None:
             path="a.md",
             sha256="HASH2",
             anythingllm_loc="custom-documents/y.json",
-            workspace_slug="forage-c",
+            workspace_slug="c",
             uploaded_at="2026-05-15T01:00:00Z",
             forage_status="ok",
         )

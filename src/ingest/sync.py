@@ -73,6 +73,43 @@ def _doc_source(collection: str, row: ForageFile) -> str:
     return f"forage://{collection}/{row.source}/{row.path}"
 
 
+def _target_folder(workspace_slug: str, source: str) -> str:
+    """Documents-folder name for one (collection, source) pair.
+
+    Example: workspace ``news`` + source ``archive`` → folder ``news-archive``.
+    The collection prefix keeps folders unique across collections that share
+    a source name.
+    """
+    return f"{workspace_slug}-{source}"
+
+
+_CUSTOM = "custom-documents/"
+
+
+def _move_into_folder(
+    client: AnythingLLMClient,
+    src_location: str,
+    target_folder: str,
+    *,
+    ensured_folders: set[str],
+) -> str:
+    """Move a freshly uploaded document into ``target_folder``.
+
+    Returns the new location. The folder is created on first use per sync run
+    (tracked via ``ensured_folders``). Must be called BEFORE embedding —
+    AnythingLLM's move endpoint silently skips embedded files.
+    """
+    if not src_location.startswith(_CUSTOM):
+        return src_location
+    filename = src_location[len(_CUSTOM):]
+    dst_location = f"{target_folder}/{filename}"
+    if target_folder not in ensured_folders:
+        client.create_folder(target_folder)
+        ensured_folders.add(target_folder)
+    client.move_files([(src_location, dst_location)])
+    return dst_location
+
+
 def _doc_title(row: ForageFile) -> str:
     stem = Path(row.path).stem
     return f"{row.source}/{stem}" if stem else f"{row.source}/{row.path}"
@@ -100,7 +137,6 @@ def sync_collection(
     include_suspicious: bool = False,
     keep_orphans: bool = False,
     dry_run: bool = False,
-    workspace_prefix: str = "forage-",
 ) -> SyncResult:
     """Run the full sync for one forage collection.
 
@@ -149,13 +185,15 @@ def sync_collection(
             _summarize_dry_run(diff)
             return result
 
-        slug = config.workspace_slug_for(collection, prefix=workspace_prefix)
+        slug = config.workspace_slug_for(collection)
         ws = client.ensure_workspace(slug, display_name=slug)
         _log.debug("workspace: slug=%s name=%s", ws.slug, ws.name)
 
         result.reconciled = _reconcile_remote(
             collection, client=client, known_locs={u.anythingllm_loc for u in prior_uploads}
         )
+
+        ensured_folders: set[str] = set()
 
         for row in diff.new:
             try:
@@ -166,6 +204,7 @@ def sync_collection(
                     client=client,
                     uconn=uconn,
                     workspace_slug=ws.slug,
+                    ensured_folders=ensured_folders,
                 )
                 result.uploaded += 1
             except Exception as exc:
@@ -185,6 +224,7 @@ def sync_collection(
                     client=client,
                     uconn=uconn,
                     workspace_slug=ws.slug,
+                    ensured_folders=ensured_folders,
                 )
                 result.changed += 1
             except Exception as exc:
@@ -260,6 +300,7 @@ def _upload_one(
     client: AnythingLLMClient,
     uconn,
     workspace_slug: str,
+    ensured_folders: set[str],
 ) -> None:
     text = _read_markdown(output_root, row)
     upload = client.upload_raw_text(
@@ -268,20 +309,26 @@ def _upload_one(
         doc_source=_doc_source(collection, row),
         description=_doc_description(row),
     )
-    client.embed_documents(workspace_slug, adds=[upload.location])
+    final_location = _move_into_folder(
+        client,
+        upload.location,
+        _target_folder(workspace_slug, row.source),
+        ensured_folders=ensured_folders,
+    )
+    client.embed_documents(workspace_slug, adds=[final_location])
     state.upsert_upload(
         uconn,
         state.Upload(
             source=row.source,
             path=row.path,
             sha256=row.sha256 or "",
-            anythingllm_loc=upload.location,
+            anythingllm_loc=final_location,
             workspace_slug=workspace_slug,
             uploaded_at=config.utc_now(),
             forage_status=row.status,
         ),
     )
-    _log.info("uploaded: %s/%s -> %s", row.source, row.path, upload.location)
+    _log.info("uploaded: %s/%s -> %s", row.source, row.path, final_location)
 
 
 def _summarize_dry_run(diff: Diff) -> None:

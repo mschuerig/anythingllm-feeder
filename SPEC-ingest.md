@@ -36,7 +36,7 @@ Layout under `<app-support>`:
 
 ```
 <app-support>/
-├── config.json                       # global config (base URL, workspace prefix)
+├── config.json                       # global config (base URL, AnythingLLM storage dir)
 └── collections/
     └── <collection-name>/
         ├── uploads.db                # SQLite, our local upload-state manifest
@@ -53,7 +53,6 @@ The collection-name subdirectory mirrors forage's `<forage-app-support>/collecti
 {
   "version": 1,
   "base_url": "http://localhost:3001",
-  "workspace_prefix": "forage-",
   "anythingllm_storage_dir": null
 }
 ```
@@ -97,11 +96,15 @@ Primary key: `(source, path)` (matches forage's PK).
 
 The presence of a row means "we believe this document currently exists in AnythingLLM at `anythingllm_loc`." Mismatch is handled by the reconciliation pass on the next sync.
 
-## Workspace mapping
+## Workspace and folder mapping
 
-One AnythingLLM workspace per forage collection. The workspace slug is `<prefix><collection-name>`, where `<prefix>` defaults to `forage-` and is configurable in `config.json`. The workspace is auto-created on first sync if it does not exist; afterwards it is reused.
+One AnythingLLM workspace per forage collection. The workspace slug is the collection name verbatim — forage already validates collection names against `^[a-z0-9][a-z0-9_-]*$`, which is a safe AnythingLLM slug. The workspace is auto-created on first sync if it does not exist; afterwards it is reused.
 
-Sources within a collection are **not** mapped to AnythingLLM folders in v1. Each document's `docSource` metadata field is `forage://<collection>/<source>/<path>`, which is sufficient to identify provenance in search results without depending on folder mechanics.
+Each forage source within a collection maps to its own **AnythingLLM documents folder**, named `<collection>-<source>` (e.g. collection `news` with source `archive` → folder `news-archive`). All Markdown files extracted from one source live in that folder.
+
+AnythingLLM document folders are flat — no nesting — so the `<collection>-` prefix in the folder name is the only thing keeping two collections that share a source name (e.g. both have `archive`) from colliding on disk.
+
+Each document's `docSource` metadata field is `forage://<collection>/<source>/<path>`. That value, not the folder name, is the canonical provenance marker used during reconciliation.
 
 ## Upload payload
 
@@ -120,7 +123,18 @@ Request body:
 }
 ```
 
-The response includes a `documents` array; we keep `documents[0].location`. That `location` is what `/workspace/.../update-embeddings` and `/system/remove-documents` take.
+The response includes a `documents` array; we keep `documents[0].location`. AnythingLLM always writes raw-text uploads to `custom-documents/` — there is no folder parameter on this endpoint. We immediately move the document into its target folder before embedding (see "Folder organization").
+
+### Folder organization
+
+Per-source folders are produced with two follow-up calls per upload:
+
+1. `POST /api/v1/document/create-folder {"name": "<workspace-slug>-<source>"}` — idempotent at our layer. AnythingLLM returns **HTTP 500** with `"Folder by that name already exists"` when the folder is already present; the client treats that specific body as success. Every other 5xx still raises `RemoteError`. Within one sync run, we track folders we've already created in-memory and skip the call after the first time.
+2. `POST /api/v1/document/move-files {"files": [{"from": "custom-documents/<file>.json", "to": "<workspace-slug>-<source>/<file>.json"}]}`.
+
+**The move must happen before `update-embeddings`.** AnythingLLM's move endpoint silently filters out files already embedded in any workspace — embedding first would freeze the document in `custom-documents/` with no error returned.
+
+The location stored in `uploads.db.anythingllm_loc` is the **post-move** path (`<workspace-slug>-<source>/<file>.json`). `update-embeddings` and `remove-documents` accept that form.
 
 ## Sync algorithm
 
@@ -137,17 +151,19 @@ For each invocation of `ingest sync <collection>`:
    - **unchanged** — in both, `sha256` matches.
    - **orphan** — in `uploads`; key is in neither `in_scope` nor `keep_alive`. These are documents forage no longer trusts (status flipped to `failed`/`pending`/`no_audio`, or the source file was deleted).
 5. **If `--dry-run`** — log the diff (one line per item under verbose) and return. No HTTP, no state writes.
-6. **Ensure workspace.** `GET /api/v1/workspaces`; if no slug matches `<prefix><collection>`, `POST /api/v1/workspace/new {"name": "<prefix><collection>"}`.
+6. **Ensure workspace.** `GET /api/v1/workspaces`; if no slug matches `<collection>`, `POST /api/v1/workspace/new {"name": "<collection>"}`.
 7. **Reconcile remote.** `GET /api/v1/documents`. For every leaf whose `docSource` starts with `forage://<collection>/` but whose `location` is **not** in our `uploads` table, `DELETE /api/v1/system/remove-documents`. This removes phantom documents from a previous run where the upload completed server-side after our HTTP client timed out — without this pass, the next sync would treat them as `new` and create duplicates. Other collections' `forage://` documents are not touched.
 8. **For each `new` row:**
    - Read the `.md` file at `<forage-app-support>/collections/<name>/output/<output_path>`.
-   - `POST /api/v1/document/raw-text` with the body above. Capture `documents[0].location`.
-   - `POST /api/v1/workspace/<slug>/update-embeddings {"adds": [location]}`.
-   - Insert a row into `uploads`.
+   - `POST /api/v1/document/raw-text` with the body above. Capture `documents[0].location` (always `custom-documents/...`).
+   - Ensure the per-source folder exists: `POST /api/v1/document/create-folder` with `name = <collection>-<source>` (skipped if we created it earlier this run; the "already exists" 500 is swallowed at the client layer).
+   - `POST /api/v1/document/move-files` from `custom-documents/<file>.json` to `<collection>-<source>/<file>.json`. This must run **before** embedding — see "Folder organization".
+   - `POST /api/v1/workspace/<slug>/update-embeddings {"adds": [final_location]}`.
+   - Insert a row into `uploads` with `anythingllm_loc = final_location`.
 9. **For each `changed` (row, prior) pair:**
    - `POST /api/v1/workspace/<slug>/update-embeddings {"deletes": [prior.location]}`.
    - `DELETE /api/v1/system/remove-documents {"names": [prior.location]}`.
-   - Upload + embed the new version as in step 8. Upsert (replace) the `uploads` row.
+   - Upload + create-folder + move + embed the new version as in step 8. Upsert (replace) the `uploads` row.
 10. **For each `orphan` upload:**
     - If `--keep-orphans`: log and skip.
     - Else: same delete sequence as the "changed" pre-step, then `DELETE FROM uploads`.
@@ -217,7 +233,7 @@ In order: `ANYTHINGLLM_STORAGE_DIR` env var → `anythingllm_storage_dir` in `co
 
 ### What's reported
 
-For workspace `<workspace_prefix><collection>` and the set of `anythingllm_loc` values in our `uploads.db`:
+For workspace `<collection>` and the set of `anythingllm_loc` values in our `uploads.db`:
 
 | name                      | scope              | how it's computed                                                                                  |
 |---------------------------|--------------------|----------------------------------------------------------------------------------------------------|
@@ -265,7 +281,6 @@ Console output mirrors the file at INFO by default; `-v` raises it to DEBUG, `-q
 
 ## Out of scope for v1
 
-- Mapping forage sources to AnythingLLM folders (cosmetic; `move-files` API is deferred). Workspace mapping is what matters for RAG.
 - Non-Markdown upload paths (PDF passthrough via `/document/upload`). Not useful while forage already produces clean Markdown.
 - Watch mode. Manual `forage update && ingest sync` is fine.
 - Concurrency.
@@ -275,7 +290,7 @@ Console output mirrors the file at INFO by default; `-v` raises it to DEBUG, `-q
 
 ## Acceptance scenarios
 
-1. **First sync.** A forage collection `demo` has 3 `ok` documents. `ingest sync demo`. The workspace `forage-demo` is created. Three raw-text uploads happen, each followed by `update-embeddings`. `uploads.db` has three rows.
+1. **First sync.** A forage collection `demo` has 3 `ok` documents. `ingest sync demo`. The workspace `demo` is created. Three raw-text uploads happen, each followed by a folder move and `update-embeddings`. `uploads.db` has three rows.
 2. **Idempotent.** Run `ingest sync demo` again. Zero uploads, three unchanged. No `raw-text` POST is issued (verify via the AnythingLLM access log or the test transport's request list).
 3. **Change detection.** Edit one source file, `forage update demo` rewrites the Markdown, sha256 changes. `ingest sync demo`. One replace (old remote doc deleted, new one uploaded), two unchanged.
 4. **Orphan.** Delete a source file, `forage update demo --orphans delete` drops the row. `ingest sync demo`. The previously-uploaded doc is deleted from AnythingLLM and from `uploads.db`.
@@ -288,3 +303,5 @@ Console output mirrors the file at INFO by default; `-v` raises it to DEBUG, `-q
 11. **Bad key.** Run with a wrong API key. The first auth-required request returns 401; the command exits 1 with the "Generate a fresh key" hint.
 12. **Reset.** `ingest reset demo -y` deletes `uploads.db`. The next `ingest sync demo` re-uploads everything as `new`, producing duplicates in AnythingLLM (documented; that's why the command requires `-y`).
 13. **Reconciliation.** A previous sync's `raw-text` upload completed on the server *after* our HTTP timeout fired, so the document exists in AnythingLLM with `docSource = forage://demo/...` but no row in `uploads.db`. The next `ingest sync demo` lists `/api/v1/documents`, finds the untracked entry, and removes it before processing the diff. Re-uploading the same forage row as `new` then produces exactly one remote copy (not two). Forage:// documents tagged for other collections are not touched.
+14. **Per-source folder layout.** Collection `demo` has sources `notes` and `drafts`. After `ingest sync demo`, AnythingLLM's `documents/` tree contains two folders, `demo-notes/` and `demo-drafts/`, each holding the documents from its source. Nothing is left in `custom-documents/`. Each `uploads.db.anythingllm_loc` value starts with the corresponding folder name.
+15. **Idempotent folder creation.** On the second sync (after scenario 14), the `create-folder` calls return HTTP 500 with "Folder by that name already exists". The client treats that as success; the sync completes normally and reports `unchanged` counts only.

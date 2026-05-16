@@ -33,7 +33,6 @@ def _sync_one(
             include_suspicious=include_suspicious,
             keep_orphans=keep_orphans,
             dry_run=dry_run,
-            workspace_prefix=settings.workspace_prefix,
         )
     except forage_db.ForageStateError as exc:
         print(f"error: {exc}", file=sys.stderr)
@@ -74,9 +73,7 @@ def cmd_sync(args: argparse.Namespace) -> int:
         if dry_run:
             # dry-run does not contact the server; tolerate a missing API key
             settings = config.Settings(
-                base_url="(dry-run)",
-                api_key="(dry-run)",
-                workspace_prefix=config.load_global().workspace_prefix,
+                base_url="(dry-run)", api_key="(dry-run)"
             )
         else:
             print(f"error: {exc}", file=sys.stderr)

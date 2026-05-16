@@ -110,8 +110,12 @@ class FakeAnythingLLM:
         self.workspaces: dict[str, str] = {}
         self.documents: dict[str, FakeDoc] = {}
         self.embeddings: dict[str, set[str]] = {}
+        self.folders: set[str] = {"custom-documents"}
         self.next_doc_id = 0
         self.request_log: list[tuple[str, str]] = []
+
+    def _is_embedded(self, location: str) -> bool:
+        return any(location in s for s in self.embeddings.values())
 
     def handle(self, request: httpx.Request) -> httpx.Response:
         self.request_log.append((request.method, request.url.path))
@@ -216,5 +220,37 @@ class FakeAnythingLLM:
                 for embeds in self.embeddings.values():
                     embeds.discard(name)
             return httpx.Response(200, json={"success": True})
+
+        if path == "/api/v1/document/create-folder" and method == "POST":
+            body = json.loads(request.content)
+            name = body["name"]
+            if name in self.folders:
+                return httpx.Response(
+                    500,
+                    json={
+                        "success": False,
+                        "message": "Folder by that name already exists",
+                    },
+                )
+            self.folders.add(name)
+            return httpx.Response(200, json={"success": True, "message": None})
+
+        if path == "/api/v1/document/move-files" and method == "POST":
+            body = json.loads(request.content)
+            for entry in body.get("files", []):
+                src, dst = entry["from"], entry["to"]
+                # Mirror the real server: silently skip if embedded somewhere.
+                if self._is_embedded(src):
+                    continue
+                doc = self.documents.pop(src, None)
+                if doc is None:
+                    continue
+                self.documents[dst] = FakeDoc(
+                    location=dst,
+                    title=doc.title,
+                    text=doc.text,
+                    doc_source=doc.doc_source,
+                )
+            return httpx.Response(200, json={"success": True, "message": None})
 
         return httpx.Response(404, json={"error": f"no route for {method} {path}"})

@@ -56,5 +56,6 @@ uv run ingest --help
 
 ## Things that look load-bearing but aren't
 
-- ingest's `workspace_prefix` (default `forage-`) lets a user run multiple ingest configs against one AnythingLLM without slug collisions. Default is fine for single-user.
+- ingest's `workspace_slug_for(collection)` currently returns the collection name unchanged. It exists as the single point of truth in case slug munging (lowercasing, sanitizing) is ever needed; do not bypass it.
+- Per-source documents folder name: `<collection>-<source>`. Computed in `sync._target_folder`. Tracked in-memory per sync run (`ensured_folders`) so `create-folder` is called at most once per (collection, source) pair, regardless of upload count.
 - `--all` on forage's `update`/`transcribe` and ingest's `sync` walks every collection. It's a convenience; per-collection is the unit of work.

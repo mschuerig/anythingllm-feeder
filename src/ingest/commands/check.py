@@ -24,7 +24,6 @@ def cmd_check(args: argparse.Namespace) -> int:
     as_json = getattr(args, "as_json", False)
     payload: dict[str, object] = {
         "base_url": settings.base_url,
-        "workspace_prefix": settings.workspace_prefix,
     }
     try:
         with AnythingLLMClient(

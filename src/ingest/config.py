@@ -38,7 +38,6 @@ class ConfigError(Exception):
 class GlobalConfig:
     version: int = 1
     base_url: str = DEFAULT_BASE_URL
-    workspace_prefix: str = "forage-"
     anythingllm_storage_dir: str | None = None
 
     def to_json(self) -> str:
@@ -46,7 +45,6 @@ class GlobalConfig:
             {
                 "version": self.version,
                 "base_url": self.base_url,
-                "workspace_prefix": self.workspace_prefix,
                 "anythingllm_storage_dir": self.anythingllm_storage_dir,
             },
             indent=2,
@@ -58,7 +56,6 @@ class GlobalConfig:
         return cls(
             version=d.get("version", 1),
             base_url=d.get("base_url", DEFAULT_BASE_URL),
-            workspace_prefix=d.get("workspace_prefix", "forage-"),
             anythingllm_storage_dir=d.get("anythingllm_storage_dir"),
         )
 
@@ -80,11 +77,10 @@ def save_global(cfg: GlobalConfig) -> None:
 class Settings:
     base_url: str
     api_key: str
-    workspace_prefix: str
 
 
 def resolve_settings() -> Settings:
-    """Resolve base URL, API key, and workspace prefix from config + env.
+    """Resolve base URL and API key from config + env.
 
     Env vars override config. API key is required and never persisted to disk.
     """
@@ -96,16 +92,18 @@ def resolve_settings() -> Settings:
             f"{ENV_API_KEY} is not set. Generate a key in AnythingLLM "
             "(Settings → Developer) and export it."
         )
-    return Settings(
-        base_url=base_url,
-        api_key=api_key,
-        workspace_prefix=cfg.workspace_prefix,
-    )
+    return Settings(base_url=base_url, api_key=api_key)
 
 
-def workspace_slug_for(collection: str, *, prefix: str) -> str:
-    """Derive an AnythingLLM workspace slug for a forage collection."""
-    return f"{prefix}{collection}"
+def workspace_slug_for(collection: str) -> str:
+    """AnythingLLM workspace slug for a forage collection.
+
+    Forage already validates collection names against ``^[a-z0-9][a-z0-9_-]*$``
+    which is also a valid AnythingLLM slug, so this is currently the identity
+    function. Keep it as the single point of truth so any future slug munging
+    has one place to live.
+    """
+    return collection
 
 
 def resolve_anythingllm_storage_dir() -> Path | None:

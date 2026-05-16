@@ -24,7 +24,7 @@ def _u(source: str, path: str, sha: str) -> state.Upload:
         path=path,
         sha256=sha,
         anythingllm_loc=f"custom-documents/{source}-{path}.json",
-        workspace_slug="forage-c",
+        workspace_slug="c",
         uploaded_at="2026-05-15T00:00:00Z",
         forage_status="ok",
     )

@@ -52,8 +52,8 @@ def test_status_human_includes_storage(
     locs = list(fake_server.documents.keys())
     _write_doc(storage_dir, locs[0], 1000)
     _write_doc(storage_dir, locs[1], 500)
-    (storage_dir / "lancedb" / "forage-demo.lance").mkdir(parents=True)
-    (storage_dir / "lancedb" / "forage-demo.lance" / "data.lance").write_bytes(
+    (storage_dir / "lancedb" / "demo.lance").mkdir(parents=True)
+    (storage_dir / "lancedb" / "demo.lance" / "data.lance").write_bytes(
         b"v" * 4096
     )
     (storage_dir / "vector-cache").mkdir()
