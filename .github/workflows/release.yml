@@ -111,6 +111,17 @@ jobs:
           man ingest > /dev/null
           brew uninstall anythingllm-feeder
 
+      - name: Dump brew install logs on failure
+        if: failure()
+        run: |
+          echo "=== Homebrew install logs ==="
+          for f in "$HOME"/Library/Logs/Homebrew/anythingllm-feeder/*; do
+            [ -f "$f" ] || continue
+            echo
+            echo "--- $f ---"
+            cat "$f"
+          done
+
       - name: Commit + push to tap
         working-directory: tap
         run: |
