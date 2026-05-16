@@ -6,13 +6,13 @@ requires-python = ">=3.11"
 authors = [{ name = "Michael Schuerig", email = "michael@schuerig.de" }]
 readme = "README.md"
 license = { file = "LICENSE" }
-dependencies = ["httpx>=0.27"]
+dependencies = ["httpx>=0.27", "send2trash>=1.8", "shtab>=1.7"]
 
 [project.optional-dependencies]
 docling = ["docling"]
 whisper = ["mlx-whisper"]
 all = ["docling", "mlx-whisper"]
-dev = ["pytest"]
+dev = ["pytest", "argparse-manpage>=4.5"]
 
 [project.scripts]
 forage = "forage.cli:main"

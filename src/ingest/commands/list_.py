@@ -12,16 +12,15 @@ def _list_collections() -> list[dict[str, object]]:
     each annotated with whether ingest has any upload state for it.
     """
     out: list[dict[str, object]] = []
-    forage_root = paths.forage_app_support_dir() / "collections"
-    if not forage_root.exists():
+    collections_root = paths.collections_dir()
+    if not collections_root.exists():
         return out
-    for d in sorted(forage_root.iterdir()):
+    for d in sorted(collections_root.iterdir()):
         if not d.is_dir():
             continue
-        cfg = d / "config.json"
-        if not cfg.exists():
-            continue
         name = d.name
+        if not paths.forage_collection_config_path(name).exists():
+            continue
         uploads_db = paths.uploads_db_path(name)
         upload_count = 0
         if uploads_db.exists():
@@ -34,7 +33,7 @@ def _list_collections() -> list[dict[str, object]]:
             {
                 "name": name,
                 "uploads": upload_count,
-                "forage_dir": str(d),
+                "forage_dir": str(paths.forage_collection_dir(name)),
             }
         )
     return out

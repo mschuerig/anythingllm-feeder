@@ -4,9 +4,12 @@ import argparse
 import sys
 from pathlib import Path
 
+import shtab
+
 from ingest import config, log
 from ingest.commands.check import cmd_check
 from ingest.commands.list_ import cmd_list
+from ingest.commands.purge import cmd_purge
 from ingest.commands.reset import cmd_reset
 from ingest.commands.status import cmd_status
 from ingest.commands.sync import cmd_sync
@@ -73,6 +76,7 @@ def _add_global_flags(p: argparse.ArgumentParser) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="ingest")
     _add_global_flags(parser)
+    shtab.add_argument_to(parser, ["--print-completion"])
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_sync = sub.add_parser(
@@ -121,6 +125,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_reset.add_argument("-y", "--yes", action="store_true")
     _add_global_flags(p_reset)
 
+    p_purge = sub.add_parser(
+        "purge",
+        help="delete ALL ingest state (every collection's uploads.db and logs)",
+    )
+    p_purge.add_argument("-y", "--yes", action="store_true")
+    _add_global_flags(p_purge)
+
     return parser
 
 
@@ -130,6 +141,7 @@ _HANDLERS = {
     "list": cmd_list,
     "check": cmd_check,
     "reset": cmd_reset,
+    "purge": cmd_purge,
 }
 
 

@@ -3,24 +3,19 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from _shared.appdirs import resolve_app_support
+from _shared import appdirs
 
-ENV_OVERRIDE = "INGEST_APP_SUPPORT"
-FORAGE_ENV_OVERRIDE = "FORAGE_APP_SUPPORT"
+ENV_OVERRIDE = appdirs.ENV_OVERRIDE
 
 
 def app_support_dir() -> Path:
-    """Directory holding ingest's own state (uploads.db, logs, config)."""
-    return resolve_app_support("ingest", ENV_OVERRIDE)
-
-
-def forage_app_support_dir() -> Path:
-    """Directory where forage keeps its state. Read-only from our side."""
-    return resolve_app_support("forage", FORAGE_ENV_OVERRIDE)
+    """The toolkit's shared data root (also used by forage)."""
+    return appdirs.app_support_dir()
 
 
 def global_config_path() -> Path:
-    return app_support_dir() / "config.json"
+    """ingest's top-level config (AnythingLLM URL, storage_dir)."""
+    return app_support_dir() / "ingest" / "config.json"
 
 
 def collections_dir() -> Path:
@@ -28,7 +23,8 @@ def collections_dir() -> Path:
 
 
 def collection_dir(name: str) -> Path:
-    return collections_dir() / name
+    """ingest's slice of a collection: ``collections/<name>/ingest``."""
+    return collections_dir() / name / "ingest"
 
 
 def uploads_db_path(name: str) -> Path:
@@ -40,7 +36,8 @@ def collection_log_path(name: str) -> Path:
 
 
 def forage_collection_dir(name: str) -> Path:
-    return forage_app_support_dir() / "collections" / name
+    """forage's slice of a collection. Read-only from ingest's side."""
+    return collections_dir() / name / "forage"
 
 
 def forage_collection_db_path(name: str) -> Path:
@@ -76,6 +73,4 @@ def default_anythingllm_storage_dir() -> Path:
             / "anythingllm-desktop"
             / "storage"
         )
-    # No reliable default elsewhere; resolve_anythingllm_storage_dir will
-    # treat a non-existing path as "not configured".
     return Path("/nonexistent/anythingllm/storage")

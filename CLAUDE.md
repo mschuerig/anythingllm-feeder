@@ -14,10 +14,10 @@ Both share a small `src/_shared/` package for platform-path resolution, logging 
 
 ## Shared conventions (both tools)
 
-- **Storage paths** route through each tool's `paths.py`, which delegates platform resolution to `_shared.appdirs.resolve_app_support(name, env_override)`. macOS → `~/Library/Application Support/<name>/`, Linux → `$XDG_DATA_HOME/<name>/`, Windows → `%LOCALAPPDATA%\<name>\`. No hard-coded paths elsewhere.
+- **Storage paths** route through each tool's `paths.py`, which delegates platform resolution to `_shared.appdirs.app_support_dir()`. Both tools share one data root: macOS → `~/Library/Application Support/anythingllm-feeder/`, Linux → `$XDG_DATA_HOME/anythingllm-feeder/`, Windows → `%LOCALAPPDATA%\anythingllm-feeder\`. Inside that root: `forage/config.json` and `ingest/config.json` for global per-tool config; `collections/<name>/forage/` and `collections/<name>/ingest/` per collection. No hard-coded paths elsewhere.
 - **Timestamps** in DB and config are ISO 8601 UTC strings via `_shared.timestamps.utc_now()`. Source-file mtimes stay POSIX float.
 - **Logging** is set up via each tool's `log.py`, which delegates to `_shared.log`. One logger per tool fans out to stderr (filtered by `-v`/`-q`) and to the active collection's `*.log` file.
-- **Test isolation**: every test redirects `FORAGE_APP_SUPPORT` and/or `INGEST_APP_SUPPORT` to a tmp dir via fixtures in the relevant `conftest.py`.
+- **Test isolation**: every test redirects `ANYTHINGLLM_FEEDER_APP_SUPPORT` to a tmp dir via the `app_support` fixture in the relevant `conftest.py`. Both conftests also install an autouse fixture that monkeypatches `send2trash` to `shutil.rmtree` so `purge`-path tests never touch the developer's real Trash.
 
 ## forage-specific (`src/forage/`)
 
@@ -40,7 +40,7 @@ Both share a small `src/_shared/` package for platform-path resolution, logging 
 
 ## Test layout
 
-- forage: `tests/forage/`. The `app_support` fixture in `tests/forage/conftest.py` redirects `FORAGE_APP_SUPPORT`. docling/mlx-whisper extractors are stubbed via `_REGISTRY` monkeypatching.
+- forage: `tests/forage/`. The `app_support` fixture in `tests/forage/conftest.py` redirects `ANYTHINGLLM_FEEDER_APP_SUPPORT`. docling/mlx-whisper extractors are stubbed via `_REGISTRY` monkeypatching.
 - ingest: `tests/ingest/`. `tests/ingest/_helpers.py` holds `FakeForageFile`, `create_forage_state`, and `FakeAnythingLLM` (in-memory REST stand-in). `tests/ingest/conftest.py` exposes them as fixtures; `client_factory` wires the HTTP client via `httpx.MockTransport(server.handle)` and sets `ANYTHINGLLM_API_KEY=test-key`. Tests must never touch real AnythingLLM or real forage state.
 
 ## Running

@@ -4,36 +4,39 @@ import os
 import sys
 from pathlib import Path
 
+APP_NAME = "anythingllm-feeder"
+ENV_OVERRIDE = "ANYTHINGLLM_FEEDER_APP_SUPPORT"
 
-def default_app_support(name: str) -> Path:
-    """Return the platform-appropriate default state directory for ``name``.
 
-    - macOS: ``~/Library/Application Support/<name>``
-    - Windows: ``%LOCALAPPDATA%/<name>`` (falls back to ``~/AppData/Local/<name>``)
-    - Linux / other Unix: ``$XDG_DATA_HOME/<name>`` per the XDG Base Directory
-      Specification (falls back to ``~/.local/share/<name>``)
+def default_app_support() -> Path:
+    """Platform-appropriate default location for the toolkit's data root.
+
+    - macOS: ``~/Library/Application Support/anythingllm-feeder``
+    - Windows: ``%LOCALAPPDATA%/anythingllm-feeder``
+      (falls back to ``~/AppData/Local/anythingllm-feeder``)
+    - Linux / other Unix: ``$XDG_DATA_HOME/anythingllm-feeder`` per the XDG
+      Base Directory Specification (falls back to
+      ``~/.local/share/anythingllm-feeder``)
+
+    forage and ingest both live under this single root; see ``forage.paths``
+    and ``ingest.paths`` for the per-tool layout.
     """
     if sys.platform == "darwin":
-        return Path.home() / "Library" / "Application Support" / name
+        return Path.home() / "Library" / "Application Support" / APP_NAME
     if sys.platform.startswith("win"):
         base = os.environ.get("LOCALAPPDATA")
         if base:
-            return Path(base) / name
-        return Path.home() / "AppData" / "Local" / name
+            return Path(base) / APP_NAME
+        return Path.home() / "AppData" / "Local" / APP_NAME
     base = os.environ.get("XDG_DATA_HOME")
     if base:
-        return Path(base) / name
-    return Path.home() / ".local" / "share" / name
+        return Path(base) / APP_NAME
+    return Path.home() / ".local" / "share" / APP_NAME
 
 
-def resolve_app_support(name: str, env_override: str) -> Path:
-    """Resolve the state directory, honoring an environment override.
-
-    If the environment variable ``env_override`` is set, its value (expanded
-    for ``~``) is returned. Otherwise the platform default for ``name`` is
-    returned.
-    """
-    raw = os.environ.get(env_override)
+def app_support_dir() -> Path:
+    """Return the toolkit's data root, honoring ``ANYTHINGLLM_FEEDER_APP_SUPPORT``."""
+    raw = os.environ.get(ENV_OVERRIDE)
     if raw:
         return Path(raw).expanduser()
-    return default_app_support(name)
+    return default_app_support()

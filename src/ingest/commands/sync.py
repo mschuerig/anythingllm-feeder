@@ -87,14 +87,14 @@ def cmd_sync(args: argparse.Namespace) -> int:
             return 1
 
     if all_collections:
-        forage_root = paths.forage_app_support_dir() / "collections"
-        if not forage_root.exists():
+        collections_root = paths.collections_dir()
+        if not collections_root.exists():
             print("no forage collections found", file=sys.stderr)
             return 0
         names = sorted(
             p.name
-            for p in forage_root.iterdir()
-            if p.is_dir() and (p / "config.json").exists()
+            for p in collections_root.iterdir()
+            if p.is_dir() and paths.forage_collection_config_path(p.name).exists()
         )
         rc = 0
         for n in names:

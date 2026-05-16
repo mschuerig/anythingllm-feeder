@@ -14,6 +14,8 @@ your folders
 
 You don't need to be a developer to follow this README — just comfortable typing commands into the Terminal app.
 
+> **If something looks wrong** — your data dir got wiped, restored from backup, or AnythingLLM and forage disagree about what exists — start with [`IN_CASE_OF_ERRORS.md`](./IN_CASE_OF_ERRORS.md). It walks you through the diagnostic and recovery commands.
+
 ---
 
 ## Platform support
@@ -57,6 +59,25 @@ For everything else — especially a growing knowledge base of mixed PDFs and lo
 ---
 
 ## Install
+
+The fastest path on **macOS (Apple Silicon)** is Homebrew via a personal tap. Anything else — Intel Mac, Linux, Windows, or a development checkout — uses `uv` from source. Both options are documented below.
+
+### Install via Homebrew (macOS Apple Silicon)
+
+```sh
+brew install mschuerig/tap/anythingllm-feeder
+```
+
+This pulls in `ffmpeg`, installs `forage` and `ingest` into an isolated virtualenv, drops zsh and bash completions, and installs man pages (`man forage`, `man ingest`).
+
+A few things to know up front:
+
+- **Big download.** The bundle includes [`docling`](https://github.com/docling-project/docling) (PDF/Office extraction) and [`mlx-whisper`](https://github.com/ml-explore/mlx-examples/tree/main/whisper) (audio/video transcription). Together they pull in PyTorch and ship roughly **3–5 GB** of Python packages. First install takes a few minutes; subsequent upgrades are smaller.
+- **Apple Silicon only.** `mlx-whisper` requires the Apple Neural Engine, so the formula refuses to install on Intel Macs and Linux. On those platforms use the source install below.
+- **AnythingLLM is separate.** Install via `brew install --cask anythingllm` if you want to use `ingest`.
+- **State lives outside the keg.** Your collections, extracted Markdown, and upload bookkeeping live in `~/Library/Application Support/anythingllm-feeder/` and survive `brew upgrade` and `brew uninstall`. See **Uninstalling** below for a clean wipe.
+
+### Install from source (everything else, or for development)
 
 You'll install three things: **AnythingLLM** (only needed if you want to use `ingest`), **ffmpeg** (only needed for `forage`'s video features), and **Python 3.11+** with **uv** (a fast Python package manager).
 
@@ -112,10 +133,10 @@ Verify:
 
 ### Make the commands work from anywhere (optional)
 
-Append this to your shell rc file (`~/.zshrc` on macOS, `~/.bashrc` on most Linux):
+Append this to your shell rc file (`~/.zshrc` on macOS, `~/.bashrc` on most Linux), replacing the placeholder with wherever you cloned the repo:
 
 ```sh
-export PATH="$HOME/Projekte/anythingllm-feeder/.venv/bin:$PATH"
+export PATH="$HOME/path/to/anythingllm-feeder/.venv/bin:$PATH"
 ```
 
 Either restart the terminal or `source ~/.zshrc`. After this, plain `forage` and `ingest` work from any folder.
@@ -170,6 +191,8 @@ Each supports `-v`/`-q` and `--json` where useful.
 | `forage update <name>` / `--all` | Walk sources, extract changed files, handle deletions. |
 | `forage transcribe <name>` / `--all` | Drain the transcription queue. |
 | `forage repair <name>` | Read-only consistency check. Add `--rebuild` to regenerate `state.db` from disk. |
+| `forage doctor` | Run the read-only consistency check across **every** collection; one line of output per collection, non-zero exit on any anomaly. See [`IN_CASE_OF_ERRORS.md`](./IN_CASE_OF_ERRORS.md). |
+| `forage purge -y` | Move the entire `anythingllm-feeder/` data root (forage **and** ingest state) to Trash. Refuses while a collection is in use. See **Uninstalling**. |
 
 Useful `update` flags: `--source <name>`, `--ext pdf,mp4`, `--orphans list|delete|ignore` (default `list`), `--defer-video`, `--dry-run`, `--ocr` / `--no-ocr` (force OCR on/off for this run without touching the collection's saved setting).
 
@@ -246,7 +269,8 @@ forage update --all && ingest sync --all     # everything
 | `ingest list` | List forage's collections and how many docs ingest has uploaded for each. |
 | `ingest status <name>` | Show the diff (new / changed / unchanged / orphan) without uploading. |
 | `ingest sync <name>` / `--all` | Upload changes; remove orphans by default. |
-| `ingest reset <name> -y` | Delete ingest's local upload bookkeeping. Does **not** touch AnythingLLM. |
+| `ingest reset <name> -y` | Delete ingest's local upload bookkeeping for one collection. Does **not** touch AnythingLLM. |
+| `ingest purge -y` | Synonym for `forage purge` — moves the entire `anythingllm-feeder/` data root to Trash. Does **not** touch AnythingLLM. See **Uninstalling**. |
 
 Useful `sync` flags: `--include-suspicious`, `--keep-orphans`, `--dry-run`.
 
@@ -287,16 +311,32 @@ After your first sync, `ingest status <name>` also reports disk space the collec
 
 ## Where state lives
 
-Both tools store state under platform-specific data directories. None of your source files or your AnythingLLM workspaces are touched.
+Both tools share one data directory. None of your source files or your AnythingLLM workspaces are touched.
 
-| tool | macOS | Linux | Windows | env override |
-|---|---|---|---|---|
-| forage | `~/Library/Application Support/forage/` | `$XDG_DATA_HOME/forage/` → `~/.local/share/forage/` | `%LOCALAPPDATA%\forage\` | `FORAGE_APP_SUPPORT` |
-| ingest | `~/Library/Application Support/ingest/` | `$XDG_DATA_HOME/ingest/` → `~/.local/share/ingest/` | `%LOCALAPPDATA%\ingest\` | `INGEST_APP_SUPPORT` |
+| platform | data root |
+|---|---|
+| macOS | `~/Library/Application Support/anythingllm-feeder/` |
+| Linux | `$XDG_DATA_HOME/anythingllm-feeder/` → `~/.local/share/anythingllm-feeder/` |
+| Windows | `%LOCALAPPDATA%\anythingllm-feeder\` |
 
-forage's data dir holds your processed Markdown — back it up if you want to preserve work. ingest's data dir holds only "what I've already uploaded" bookkeeping; deleting it (or running `ingest reset`) makes ingest re-upload everything on the next sync, creating duplicates inside AnythingLLM.
+Override with `ANYTHINGLLM_FEEDER_APP_SUPPORT` (mainly used by the test suite).
+
+Inside the data root:
+
+```
+anythingllm-feeder/
+├── forage/config.json                # whisper_model, defaults
+├── ingest/config.json                # AnythingLLM url, storage_dir
+└── collections/<name>/
+    ├── forage/{state.db, output/, …} # forage's slice
+    └── ingest/{uploads.db, …}        # ingest's slice
+```
+
+forage's slice holds your processed Markdown — back it up if you want to preserve work. ingest's slice holds only "what I've already uploaded" bookkeeping; deleting it (or running `ingest reset`) makes ingest re-upload everything on the next sync, creating duplicates inside AnythingLLM.
 
 Whisper model files live under `~/.cache/huggingface/hub/` (shared with other tools).
+
+If things ever look inconsistent — restored from backup, partial state, accidental wipe — start with [`IN_CASE_OF_ERRORS.md`](./IN_CASE_OF_ERRORS.md).
 
 ---
 
@@ -316,14 +356,14 @@ Whisper model files live under `~/.cache/huggingface/hub/` (shared with other to
 - **`AnythingLLM not reachable at http://localhost:3001`** — start AnythingLLM, or set `ANYTHINGLLM_URL` if it's on another port.
 - **`AnythingLLM rejected the API key`** — generate a fresh key in **Settings → Tools → Developer API** and `export` it again.
 - **`ANYTHINGLLM_API_KEY is not set`** — `export ANYTHINGLLM_API_KEY='…'` in this terminal session.
-- **`forage state not found at …`** — check spelling against `forage list`, or `FORAGE_APP_SUPPORT`.
+- **`forage state not found at …`** — check spelling against `forage list`, or `ANYTHINGLLM_FEEDER_APP_SUPPORT`.
 - **A document I expected got skipped** — `ingest status <name> -v`. It's probably `suspicious` (use `--include-suspicious`), failed extraction (`forage info` shows recent failures), or waiting in the transcription queue.
 - **Uploaded too much / made a mess** — delete the workspace inside AnythingLLM, then `ingest reset news -y && ingest sync news`.
 
 ### Logs
 
-- forage: `<forage-data-dir>/collections/<name>/extract.log`
-- ingest: `<ingest-data-dir>/collections/<name>/ingest.log`
+- forage: `<data-dir>/collections/<name>/forage/extract.log`
+- ingest: `<data-dir>/collections/<name>/ingest/ingest.log`
 
 Both files grow over time; safe to delete when not actively running.
 
@@ -332,7 +372,7 @@ Both files grow over time; safe to delete when not actively running.
 ## Updating
 
 ```sh
-cd ~/Projekte/anythingllm-feeder
+cd ~/path/to/anythingllm-feeder           # wherever you cloned this repo
 git pull
 uv sync --extra all
 ```
@@ -343,15 +383,34 @@ Your collections, processed files, and upload bookkeeping are untouched.
 
 ## Uninstalling
 
+`brew uninstall` and `rm -rf` only remove the binaries. Your collections and upload bookkeeping live in a separate data directory (see **Where state lives**) and are intentionally preserved across reinstalls. Wipe them explicitly with `forage purge` and `ingest purge` while the binaries are still installed.
+
+`forage purge` and `ingest purge` are synonyms in the current layout: both move the entire `anythingllm-feeder/` data root to the system Trash. Recover via Finder → Trash → Put Back if you change your mind.
+
+### Homebrew install (macOS)
+
+```sh
+forage purge                              # moves the data root to Trash
+brew uninstall anythingllm-feeder
+```
+
+Pass `-y` to skip the confirmation prompt.
+
+### Source install
+
+```sh
+.venv/bin/forage purge -y                 # moves the data root to Trash
+rm -rf ~/path/to/anythingllm-feeder       # the clone of this repo
+```
+
+If the project directory is already gone, fall back to deleting the data dir by hand:
+
 ```sh
 # macOS
-rm -rf ~/Projekte/anythingllm-feeder
-rm -rf ~/Library/Application\ Support/forage
-rm -rf ~/Library/Application\ Support/ingest
+rm -rf ~/Library/Application\ Support/anythingllm-feeder
 
 # Linux
-rm -rf ~/Projekte/anythingllm-feeder
-rm -rf ~/.local/share/forage ~/.local/share/ingest
+rm -rf ~/.local/share/anythingllm-feeder
 ```
 
 Documents already uploaded into AnythingLLM stay there — ingest only manages upload bookkeeping. To remove the documents themselves, delete the corresponding workspaces inside AnythingLLM.
@@ -367,6 +426,6 @@ uv run forage --help
 uv run ingest --help
 ```
 
-forage's suite stubs out docling and mlx-whisper, so heavy libraries are never imported. ingest's suite wires `httpx.MockTransport` to an in-memory fake AnythingLLM and builds fake forage state in temp dirs. Neither suite touches real state directories — each test redirects `FORAGE_APP_SUPPORT` / `INGEST_APP_SUPPORT` per test.
+forage's suite stubs out docling and mlx-whisper, so heavy libraries are never imported. ingest's suite wires `httpx.MockTransport` to an in-memory fake AnythingLLM and builds fake forage state in temp dirs. Neither suite touches real state directories — each test redirects `ANYTHINGLLM_FEEDER_APP_SUPPORT` per test, and an autouse fixture monkeypatches `send2trash` to `shutil.rmtree` so `purge`-path tests never reach the user's actual Trash.
 
 See `SPEC-forage.md` and `SPEC-ingest.md` for the design specifications, and `CLAUDE.md` for repo-wide conventions.

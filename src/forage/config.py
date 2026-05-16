@@ -149,7 +149,7 @@ def list_collections() -> list[str]:
     return sorted(
         p.name
         for p in root.iterdir()
-        if p.is_dir() and (p / "config.json").exists()
+        if p.is_dir() and paths.collection_config_path(p.name).exists()
     )
 
 

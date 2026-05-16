@@ -26,26 +26,33 @@ def _resolve_files_decision(args: argparse.Namespace, prompt: str) -> bool:
 
 def cmd_remove(args: argparse.Namespace) -> int:
     cfg = config.load_collection(args.name)  # raises if not found
-    coll_dir = paths.collection_dir(cfg.name)
+    coll_parent = paths.collections_dir() / cfg.name
+    forage_dir = paths.collection_dir(cfg.name)
+    output_dir = paths.collection_output_dir(cfg.name)
     delete = _resolve_files_decision(args, "Delete output files too? [y/N] ")
 
     with collection_lock(paths.collection_lock_path(cfg.name)):
         if delete:
-            shutil.rmtree(coll_dir)
+            # Nuke the whole collection (both tool slices).
+            shutil.rmtree(coll_parent)
         else:
-            # Keep output/ but discard everything else.
-            for child in coll_dir.iterdir():
+            # Keep only forage/output/. Drop every other forage artifact
+            # and the entire ingest slice.
+            for child in forage_dir.iterdir():
                 if child.name == "output":
                     continue
                 if child.is_dir():
                     shutil.rmtree(child)
                 else:
                     child.unlink()
+            ingest_dir = coll_parent / "ingest"
+            if ingest_dir.exists():
+                shutil.rmtree(ingest_dir)
     if delete:
         print(f"removed collection {cfg.name!r} (output files deleted)")
     else:
         print(
             f"removed collection {cfg.name!r} metadata; "
-            f"output retained at {coll_dir / 'output'}"
+            f"output retained at {output_dir}"
         )
     return 0

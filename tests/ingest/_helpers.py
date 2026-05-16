@@ -27,8 +27,12 @@ def create_forage_state(
 
     Matches forage/SPEC.md schema closely enough for our reader. Calling
     repeatedly for the same collection replaces the previous state.db.
+
+    ``forage_home`` is the toolkit data root (the single
+    ``anythingllm-feeder/`` parent); state lives under
+    ``<root>/collections/<name>/forage/``.
     """
-    coll_dir = forage_home / "collections" / collection
+    coll_dir = forage_home / "collections" / collection / "forage"
     output_dir = coll_dir / "output"
     output_dir.mkdir(parents=True, exist_ok=True)
     db_path = coll_dir / "state.db"

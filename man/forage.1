@@ -1,0 +1,447 @@
+.TH FORAGE "1" "2026\-05\-16" "anythingllm\-feeder 0.1.0" "Generated Python Manual"
+.SH NAME
+forage \- Extract documents and videos to Markdown, organized as named collections of sources.
+.SH SYNOPSIS
+.B forage
+[-h] [-v] [-q] [--json] [--print-completion {bash,zsh,tcsh}] {create,list,info,update,transcribe,repair,add-source,remove-source,set-source,rename,remove,purge,doctor} ...
+
+.SH
+POSITIONAL ARGUMENTS
+.SS \fBforage create\fR
+create a new collection
+
+usage: forage create [\-h] \-\-source NAME=PATH [\-v] [\-q] [\-\-json] name
+
+arguments:
+.RS 7
+.TP
+\fBname\fR
+.RE
+
+
+options:
+.RS 7
+.TP
+\fB\-\-source\fR \fI\,NAME=PATH\/\fR
+add a named source (repeatable, at least one required)
+
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+.RE
+
+.SS \fBforage list\fR
+list collections
+
+usage: forage list [\-h] [\-v] [\-q] [\-\-json]
+
+options:
+.RS 7
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+.RE
+
+.SS \fBforage info\fR
+show collection details
+
+usage: forage info [\-h] [\-v] [\-q] [\-\-json] name
+
+arguments:
+.RS 7
+.TP
+\fBname\fR
+.RE
+
+
+options:
+.RS 7
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+.RE
+
+.SS \fBforage update\fR
+walk sources and extract changed files
+
+usage: forage update [\-h] [\-\-all] [\-\-source SOURCE_NAME] [\-\-ext EXT]
+                     [\-\-orphans {list,delete,ignore}] [\-\-defer\-video]
+                     [\-\-dry\-run] [\-\-ocr | \-\-no\-ocr] [\-v] [\-q] [\-\-json]
+                     [name]
+
+arguments:
+.RS 7
+.TP
+\fBname\fR
+collection name (omit with \-\-all)
+.RE
+
+
+options:
+.RS 7
+.TP
+\fB\-\-all\fR
+
+.TP
+\fB\-\-source\fR \fI\,SOURCE_NAME\/\fR
+scope discovery + orphan sweep to one source
+
+.TP
+\fB\-\-ext\fR \fI\,EXT\/\fR
+comma\-separated extensions (no dots)
+
+.TP
+\fB\-\-orphans\fR \fI\,{list,delete,ignore}\/\fR
+
+.TP
+\fB\-\-defer\-video\fR
+
+.TP
+\fB\-\-dry\-run\fR
+
+.TP
+\fB\-\-ocr\fR
+force docling OCR on for this run (overrides the collection's do_ocr setting)
+
+.TP
+\fB\-\-no\-ocr\fR
+force docling OCR off for this run (overrides the collection's do_ocr setting)
+
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+.RE
+
+.SS \fBforage transcribe\fR
+drain transcription queue
+
+usage: forage transcribe [\-h] [\-\-all] [\-\-limit LIMIT]
+                         [\-\-time\-limit TIME_LIMIT] [\-\-retry\-failed]
+                         [\-\-dry\-run] [\-\-whisper\-model MODEL] [\-v] [\-q]
+                         [\-\-json]
+                         [name]
+
+arguments:
+.RS 7
+.TP
+\fBname\fR
+.RE
+
+
+options:
+.RS 7
+.TP
+\fB\-\-all\fR
+
+.TP
+\fB\-\-limit\fR \fI\,LIMIT\/\fR
+
+.TP
+\fB\-\-time\-limit\fR \fI\,TIME_LIMIT\/\fR
+
+.TP
+\fB\-\-retry\-failed\fR
+
+.TP
+\fB\-\-dry\-run\fR
+
+.TP
+\fB\-\-whisper\-model\fR \fI\,MODEL\/\fR
+Hugging Face mlx\-whisper model id for this run (overrides config.json's
+whisper_model)
+
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+.RE
+
+.SS \fBforage repair\fR
+check or rebuild state.db
+
+usage: forage repair [\-h] [\-\-check | \-\-rebuild] [\-v] [\-q] [\-\-json] name
+
+arguments:
+.RS 7
+.TP
+\fBname\fR
+.RE
+
+
+options:
+.RS 7
+.TP
+\fB\-\-check\fR
+
+.TP
+\fB\-\-rebuild\fR
+
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+.RE
+
+.SS \fBforage add\-source\fR
+add a source to a collection
+
+usage: forage add\-source [\-h] [\-v] [\-q] [\-\-json] collection name dir
+
+arguments:
+.RS 7
+.TP
+\fBcollection\fR
+
+.TP
+\fBname\fR
+
+.TP
+\fBdir\fR
+.RE
+
+
+options:
+.RS 7
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+.RE
+
+.SS \fBforage remove\-source\fR
+remove a source from a collection
+
+usage: forage remove\-source [\-h] [\-\-delete\-files | \-\-keep\-files] [\-y] [\-v]
+                            [\-q] [\-\-json]
+                            collection name
+
+arguments:
+.RS 7
+.TP
+\fBcollection\fR
+
+.TP
+\fBname\fR
+.RE
+
+
+options:
+.RS 7
+.TP
+\fB\-\-delete\-files\fR
+
+.TP
+\fB\-\-keep\-files\fR
+
+.TP
+\fB\-y\fR, \fB\-\-yes\fR
+
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+.RE
+
+.SS \fBforage set\-source\fR
+change a source's directory
+
+usage: forage set\-source [\-h] [\-v] [\-q] [\-\-json] collection name new_dir
+
+arguments:
+.RS 7
+.TP
+\fBcollection\fR
+
+.TP
+\fBname\fR
+
+.TP
+\fBnew_dir\fR
+.RE
+
+
+options:
+.RS 7
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+.RE
+
+.SS \fBforage rename\fR
+rename a collection
+
+usage: forage rename [\-h] [\-v] [\-q] [\-\-json] old_name new_name
+
+arguments:
+.RS 7
+.TP
+\fBold_name\fR
+
+.TP
+\fBnew_name\fR
+.RE
+
+
+options:
+.RS 7
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+.RE
+
+.SS \fBforage remove\fR
+remove a collection
+
+usage: forage remove [\-h] [\-\-delete\-files | \-\-keep\-files] [\-y] [\-v] [\-q]
+                     [\-\-json]
+                     name
+
+arguments:
+.RS 7
+.TP
+\fBname\fR
+.RE
+
+
+options:
+.RS 7
+.TP
+\fB\-\-delete\-files\fR
+
+.TP
+\fB\-\-keep\-files\fR
+
+.TP
+\fB\-y\fR, \fB\-\-yes\fR
+
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+.RE
+
+.SS \fBforage purge\fR
+move the entire toolkit data root to Trash (forage + ingest)
+
+usage: forage purge [\-h] [\-y] [\-v] [\-q] [\-\-json]
+
+options:
+.RS 7
+.TP
+\fB\-y\fR, \fB\-\-yes\fR
+
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+.RE
+
+.SS \fBforage doctor\fR
+read-only consistency check across every collection
+
+usage: forage doctor [\-h] [\-v] [\-q] [\-\-json]
+
+options:
+.RS 7
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+.RE
+
+
+.SH OPTIONS
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+
+.TP
+\fB\-\-print\-completion\fR \fI\,{bash,zsh,tcsh}\/\fR
+print shell completion script
+
+.SH AUTHOR
+.nf
+Michael Schuerig
+.fi
+
+.SH DISTRIBUTION
+The latest version of anythingllm\-feeder may be downloaded from
+.UR https://github.com/mschuerig/anythingllm\-feeder
+.UE

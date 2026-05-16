@@ -22,12 +22,19 @@ def cmd_repair(args: argparse.Namespace) -> int:
         log.remove_handler(handler)
 
 
-def _check(cfg: config.CollectionConfig, db_path: Path) -> int:
+def check_collection(
+    cfg: config.CollectionConfig, db_path: Path
+) -> list[str]:
+    """Run the read-only consistency check; return the list of issues.
+
+    Empty list means clean. Reused by ``forage doctor`` so the same logic
+    powers both commands.
+    """
     issues: list[str] = []
 
     if not db_path.exists():
-        print(f"state.db missing at {db_path}")
-        return 1
+        issues.append(f"state.db missing at {db_path}")
+        return issues
 
     output_dir = paths.collection_output_dir(cfg.name)
     cfg_source_names = {s.name for s in cfg.sources}
@@ -68,6 +75,11 @@ def _check(cfg: config.CollectionConfig, db_path: Path) -> int:
         if source_name not in cfg_source_names:
             issues.append(f"unknown source in db: {source_name}")
 
+    return issues
+
+
+def _check(cfg: config.CollectionConfig, db_path: Path) -> int:
+    issues = check_collection(cfg, db_path)
     if not issues:
         print("ok")
         return 0

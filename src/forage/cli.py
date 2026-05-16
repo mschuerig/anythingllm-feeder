@@ -3,10 +3,14 @@ from __future__ import annotations
 import argparse
 import sys
 
+import shtab
+
 from forage import config, log
 from forage.commands.create import cmd_create
+from forage.commands.doctor import cmd_doctor
 from forage.commands.info import cmd_info
 from forage.commands.list_ import cmd_list
+from forage.commands.purge import cmd_purge
 from forage.commands.remove import cmd_remove
 from forage.commands.rename import cmd_rename
 from forage.commands.repair import cmd_repair
@@ -37,6 +41,7 @@ def _add_global_flags(p: argparse.ArgumentParser) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="forage")
     _add_global_flags(parser)
+    shtab.add_argument_to(parser, ["--print-completion"])
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_create = sub.add_parser("create", help="create a new collection")
@@ -146,6 +151,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_rm.add_argument("-y", "--yes", action="store_true")
     _add_global_flags(p_rm)
 
+    p_purge = sub.add_parser(
+        "purge",
+        help="move the entire toolkit data root to Trash (forage + ingest)",
+    )
+    p_purge.add_argument("-y", "--yes", action="store_true")
+    _add_global_flags(p_purge)
+
+    p_doctor = sub.add_parser(
+        "doctor",
+        help="read-only consistency check across every collection",
+    )
+    _add_global_flags(p_doctor)
+
     return parser
 
 
@@ -166,6 +184,8 @@ _HANDLERS = {
     "set-source": cmd_set_source,
     "rename": cmd_rename,
     "remove": cmd_remove,
+    "purge": cmd_purge,
+    "doctor": cmd_doctor,
 }
 
 

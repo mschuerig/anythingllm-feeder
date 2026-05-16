@@ -1,17 +1,33 @@
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _no_real_trash(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Replace ``send2trash`` with ``shutil.rmtree`` for the whole forage suite.
+
+    Without this, any test that exercises the purge code path (directly or
+    indirectly) would deposit fixture dirs in the developer's actual Trash.
+    """
+    import shutil
+
+    def _fake_send2trash(path: str | Path) -> None:
+        shutil.rmtree(path)
+
+    monkeypatch.setattr(
+        "forage.commands.purge.send2trash", _fake_send2trash
+    )
+
+
 @pytest.fixture
 def app_support(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Redirect FORAGE_APP_SUPPORT to a per-test temp directory."""
-    target = tmp_path / "forage"
+    """Redirect ANYTHINGLLM_FEEDER_APP_SUPPORT to a per-test toolkit root."""
+    target = tmp_path / "anythingllm-feeder"
     target.mkdir()
-    monkeypatch.setenv("FORAGE_APP_SUPPORT", str(target))
+    monkeypatch.setenv("ANYTHINGLLM_FEEDER_APP_SUPPORT", str(target))
     return target
 
 

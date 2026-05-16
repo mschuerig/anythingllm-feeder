@@ -15,35 +15,29 @@ Forage's own SPEC explicitly leaves AnythingLLM integration out of scope. This i
 
 ## Interaction with forage
 
-- Forage's `state.db` is opened **read-only** via the `file:<path>?mode=ro` SQLite URI form. Forage runs in WAL mode (see `forage/SPEC.md`), so we never block its writes.
-- Forage's storage root is located via the same algorithm forage uses, including the `FORAGE_APP_SUPPORT` env override. We never write into forage's directory tree.
+- Forage's `state.db` is opened **read-only** via the `file:<path>?mode=ro` SQLite URI form. Forage runs in WAL mode (see `SPEC-forage.md`), so we never block its writes.
+- forage and ingest share one toolkit data root; ingest reads forage's slice at `<root>/collections/<name>/forage/` and writes only its own slice at `<root>/collections/<name>/ingest/`. We never touch forage's subdirectory.
 - We read three fields from forage's `files` table: `(source, path)` (PK), `sha256` (content hash; our cache key), `status`, plus `output_path`, `extractor`, `extracted_at` for metadata and addressing. The full forage schema is documented in `forage/SPEC.md`.
 - Only rows with `status = 'ok'` are uploaded by default. `--include-suspicious` adds `status = 'suspicious'`. Other statuses (`pending`, `failed`, `no_audio`) are never uploaded.
 
 ## Storage layout
 
-All ingest state lives under a platform-specific data directory, hereafter `<app-support>`:
+ingest's state lives inside the shared toolkit data root described in `SPEC-forage.md`, hereafter `<root>`. The `ANYTHINGLLM_FEEDER_APP_SUPPORT` environment variable overrides the default location for both tools; tests redirect it per-run.
 
-| platform           | `<app-support>` default                                         |
-|--------------------|-----------------------------------------------------------------|
-| macOS              | `~/Library/Application Support/ingest/`                         |
-| Linux / other Unix | `$XDG_DATA_HOME/ingest/`, falling back to `~/.local/share/ingest/` |
-| Windows            | `%LOCALAPPDATA%\ingest\`, falling back to `~/AppData/Local/ingest\` |
-
-The `INGEST_APP_SUPPORT` environment variable overrides the default. The test suite uses this to redirect state into per-test temp directories.
-
-Layout under `<app-support>`:
+Layout under `<root>` (ingest's slice only — see `SPEC-forage.md` for the full picture):
 
 ```
-<app-support>/
-├── config.json                       # global config (base URL, AnythingLLM storage dir)
+<root>/
+├── ingest/
+│   └── config.json                   # global config (base URL, AnythingLLM storage dir)
 └── collections/
     └── <collection-name>/
-        ├── uploads.db                # SQLite, our local upload-state manifest
-        └── ingest.log                # append-only run log
+        └── ingest/
+            ├── uploads.db            # SQLite, our local upload-state manifest
+            └── ingest.log            # append-only run log
 ```
 
-The collection-name subdirectory mirrors forage's `<forage-app-support>/collections/<name>/`. Same name on both sides; resolved separately.
+The collection name is shared with forage; both tools' slices live under the same `collections/<name>/` parent.
 
 ## Configuration
 
@@ -66,8 +60,7 @@ Env overrides (env wins over config):
 | `ANYTHINGLLM_URL`           | Base URL of the local AnythingLLM server.                     |
 | `ANYTHINGLLM_API_KEY`       | **Required** unless `--api-key` / `--api-key-file` is given. Bearer token (Settings → Developer). |
 | `ANYTHINGLLM_STORAGE_DIR`   | AnythingLLM's `storage/` directory, for the storage report.   |
-| `INGEST_APP_SUPPORT`        | Override ingest's storage root (testing).                     |
-| `FORAGE_APP_SUPPORT`        | Read forage state from a non-default root (testing).          |
+| `ANYTHINGLLM_FEEDER_APP_SUPPORT` | Override the toolkit data root (shared with forage; testing). |
 | `INGEST_HTTP_TIMEOUT`       | Read/write timeout in seconds (default 300). Connect timeout is fixed at 5s. |
 
 Global CLI flags (accepted on any subcommand) that override the matching env var or config value:

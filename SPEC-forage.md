@@ -18,31 +18,38 @@ No coupling to MacWhisper. mlx-whisper downloads its own models to its huggingfa
 
 ## Storage layout
 
-All forage state lives under a platform-specific data directory, hereafter `<app-support>`:
+forage and ingest share one toolkit data root, hereafter `<root>`:
 
-| platform                | `<app-support>` default                         |
-|-------------------------|-------------------------------------------------|
-| macOS                   | `~/Library/Application Support/forage/`         |
-| Linux / other Unix      | `$XDG_DATA_HOME/forage/`, falling back to `~/.local/share/forage/` |
-| Windows                 | `%LOCALAPPDATA%\forage\`, falling back to `~/AppData/Local/forage/` |
+| platform                | `<root>` default                                                  |
+|-------------------------|-------------------------------------------------------------------|
+| macOS                   | `~/Library/Application Support/anythingllm-feeder/`               |
+| Linux / other Unix      | `$XDG_DATA_HOME/anythingllm-feeder/`, falling back to `~/.local/share/anythingllm-feeder/` |
+| Windows                 | `%LOCALAPPDATA%\anythingllm-feeder\`, falling back to `~/AppData/Local/anythingllm-feeder\` |
 
-The `FORAGE_APP_SUPPORT` environment variable overrides the default. The test suite uses this to redirect state into a per-test temp directory.
+The `ANYTHINGLLM_FEEDER_APP_SUPPORT` environment variable overrides the default. The test suite uses this to redirect state into a per-test temp directory.
 
-Layout under `<app-support>`:
+Layout under `<root>`:
 
 ```
-<app-support>/
-├── config.json                       # global config (whisper model, defaults, etc.)
+<root>/
+├── forage/
+│   └── config.json                   # forage global config (whisper model, defaults)
+├── ingest/
+│   └── config.json                   # ingest global config (see SPEC-ingest.md)
 └── collections/
     └── <collection-name>/
-        ├── config.json               # collection config (sources, etc.)
-        ├── state.db                  # SQLite manifest + transcription queue
-        ├── extract.log               # append-only log
-        ├── .lock                     # file-lock sentinel (single-writer guard)
-        └── output/                   # parallel Markdown hierarchy
-            └── <source-name>/        # one subtree per source
-                └── ...               # mirrors structure under that source's root
+        ├── forage/
+        │   ├── config.json           # collection config (sources, etc.)
+        │   ├── state.db              # SQLite manifest + transcription queue
+        │   ├── extract.log           # append-only log
+        │   ├── .lock                 # file-lock sentinel (single-writer guard)
+        │   └── output/               # parallel Markdown hierarchy
+        │       └── <source-name>/    # one subtree per source
+        │           └── ...           # mirrors structure under that source's root
+        └── ingest/                   # ingest's slice — see SPEC-ingest.md
 ```
+
+A collection is the atomic unit on disk: `collections/<name>/` is one subtree containing both tools' state. forage operates inside `collections/<name>/forage/`; ingest reads forage's slice read-only and writes only its own `collections/<name>/ingest/` slice.
 
 Each source's output sits under its own named subdirectory. The source name is supplied by the user when the source is added and must match `^[a-z0-9][a-z0-9_-]*$` (lowercase slug — it doubles as a directory name and a key in the database).
 
@@ -50,7 +57,7 @@ Output files mirror the source tree, with the extension replaced by `.md`. Examp
 
 ```
 source:  ~/Documents/news-archive/2025/article.pdf
-output:  <app-support>/collections/news/output/archive/2025/article.md
+output:  <root>/collections/news/forage/output/archive/2025/article.md
 ```
 
 ## Data model

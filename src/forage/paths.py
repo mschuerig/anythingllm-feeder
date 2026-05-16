@@ -2,30 +2,29 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from _shared.appdirs import resolve_app_support
+from _shared import appdirs
 
-ENV_OVERRIDE = "FORAGE_APP_SUPPORT"
+ENV_OVERRIDE = appdirs.ENV_OVERRIDE
 
 
 def app_support_dir() -> Path:
-    """Return the directory holding all forage state.
-
-    Honors the ``FORAGE_APP_SUPPORT`` environment variable for overrides
-    (used by the test suite); otherwise falls back to the platform default.
-    """
-    return resolve_app_support("forage", ENV_OVERRIDE)
+    """The toolkit's shared data root (also used by ingest)."""
+    return appdirs.app_support_dir()
 
 
 def global_config_path() -> Path:
-    return app_support_dir() / "config.json"
+    """forage's top-level config (whisper_model, defaults)."""
+    return app_support_dir() / "forage" / "config.json"
 
 
 def collections_dir() -> Path:
+    """Shared collections root: ``<toolkit>/collections``."""
     return app_support_dir() / "collections"
 
 
 def collection_dir(name: str) -> Path:
-    return collections_dir() / name
+    """forage's slice of a collection: ``collections/<name>/forage``."""
+    return collections_dir() / name / "forage"
 
 
 def collection_config_path(name: str) -> Path:

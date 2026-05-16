@@ -12,20 +12,38 @@ sys.path.insert(0, str(Path(__file__).parent))
 from _helpers import FakeAnythingLLM, FakeForageFile, create_forage_state
 
 
-@pytest.fixture
-def ingest_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    target = tmp_path / "ingest"
-    target.mkdir()
-    monkeypatch.setenv("INGEST_APP_SUPPORT", str(target))
-    return target
+@pytest.fixture(autouse=True)
+def _no_real_trash(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Replace ``send2trash`` with ``shutil.rmtree`` for the whole ingest suite."""
+    import shutil
+
+    def _fake_send2trash(path: str | Path) -> None:
+        shutil.rmtree(path)
+
+    monkeypatch.setattr(
+        "ingest.commands.purge.send2trash", _fake_send2trash
+    )
 
 
 @pytest.fixture
-def forage_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    target = tmp_path / "forage"
+def app_support(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Redirect ANYTHINGLLM_FEEDER_APP_SUPPORT to a per-test toolkit root."""
+    target = tmp_path / "anythingllm-feeder"
     target.mkdir()
-    monkeypatch.setenv("FORAGE_APP_SUPPORT", str(target))
+    monkeypatch.setenv("ANYTHINGLLM_FEEDER_APP_SUPPORT", str(target))
     return target
+
+
+# Back-compat aliases — both return the toolkit root. Existing tests that
+# constructed paths from these still work after a local fix-up.
+@pytest.fixture
+def ingest_home(app_support: Path) -> Path:
+    return app_support
+
+
+@pytest.fixture
+def forage_home(app_support: Path) -> Path:
+    return app_support
 
 
 @pytest.fixture

@@ -18,9 +18,12 @@ def cmd_rename(args: argparse.Namespace) -> int:
         raise config.ConfigError(f"collection {new_name!r} already exists")
 
     with collection_lock(paths.collection_lock_path(old_name)):
-        old_dir = paths.collection_dir(old_name)
-        new_dir = paths.collection_dir(new_name)
-        old_dir.rename(new_dir)
+        # Rename the shared collection root so both tool slices (forage/,
+        # ingest/) move together. The flock is held on the lock file inside
+        # forage/ which moves with the parent.
+        old_parent = paths.collections_dir() / old_name
+        new_parent = paths.collections_dir() / new_name
+        old_parent.rename(new_parent)
         cfg = config.load_collection(new_name)
         cfg.name = new_name
         config.save_collection(cfg)

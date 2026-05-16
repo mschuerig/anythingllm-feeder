@@ -1,0 +1,365 @@
+.TH INGEST "1" "2026\-05\-16" "anythingllm\-feeder 0.1.0" "Generated Python Manual"
+.SH NAME
+ingest \- Upload forage's extracted Markdown into a local AnythingLLM instance, one workspace per collection.
+.SH SYNOPSIS
+.B ingest
+[-h] [-v] [-q] [--json] [--url URL] [--api-key API_KEY] [--api-key-file API_KEY_FILE] [--storage-dir STORAGE_DIR] [--http-timeout HTTP_TIMEOUT] [--print-completion {bash,zsh,tcsh}] {sync,status,list,check,reset,purge} ...
+
+.SH
+POSITIONAL ARGUMENTS
+.SS \fBingest sync\fR
+upload changed forage documents to AnythingLLM
+
+usage: ingest sync [\-h] [\-\-all] [\-\-include\-suspicious] [\-\-keep\-orphans]
+                   [\-\-dry\-run] [\-v] [\-q] [\-\-json] [\-\-url URL]
+                   [\-\-api\-key API_KEY] [\-\-api\-key\-file API_KEY_FILE]
+                   [\-\-storage\-dir STORAGE_DIR] [\-\-http\-timeout HTTP_TIMEOUT]
+                   [name]
+
+arguments:
+.RS 7
+.TP
+\fBname\fR
+collection name (omit with \-\-all)
+.RE
+
+
+options:
+.RS 7
+.TP
+\fB\-\-all\fR
+
+.TP
+\fB\-\-include\-suspicious\fR
+also upload forage rows with status=suspicious
+
+.TP
+\fB\-\-keep\-orphans\fR
+do not delete documents from AnythingLLM that forage no longer lists
+
+.TP
+\fB\-\-dry\-run\fR
+
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+
+.TP
+\fB\-\-url\fR \fI\,URL\/\fR
+AnythingLLM base URL (overrides ANYTHINGLLM_URL and config.json)
+
+.TP
+\fB\-\-api\-key\fR \fI\,API_KEY\/\fR
+AnythingLLM API key (overrides ANYTHINGLLM_API_KEY). Visible in shell history
+and `ps`; prefer \-\-api\-key\-file or the env var for sensitive uses.
+
+.TP
+\fB\-\-api\-key\-file\fR \fI\,API_KEY_FILE\/\fR
+read the API key from this file (one line, trimmed)
+
+.TP
+\fB\-\-storage\-dir\fR \fI\,STORAGE_DIR\/\fR
+AnythingLLM storage directory for the disk\-usage report (overrides
+ANYTHINGLLM_STORAGE_DIR and config.json)
+
+.TP
+\fB\-\-http\-timeout\fR \fI\,HTTP_TIMEOUT\/\fR
+read/write timeout in seconds for AnythingLLM HTTP calls (overrides
+INGEST_HTTP_TIMEOUT; default 300). Connect timeout is fixed at 5 s.
+.RE
+
+.SS \fBingest status\fR
+show what sync would do without uploading
+
+usage: ingest status [\-h] [\-\-include\-suspicious] [\-v] [\-q] [\-\-json]
+                     [\-\-url URL] [\-\-api\-key API_KEY]
+                     [\-\-api\-key\-file API_KEY_FILE] [\-\-storage\-dir STORAGE_DIR]
+                     [\-\-http\-timeout HTTP_TIMEOUT]
+                     name
+
+arguments:
+.RS 7
+.TP
+\fBname\fR
+.RE
+
+
+options:
+.RS 7
+.TP
+\fB\-\-include\-suspicious\fR
+
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+
+.TP
+\fB\-\-url\fR \fI\,URL\/\fR
+AnythingLLM base URL (overrides ANYTHINGLLM_URL and config.json)
+
+.TP
+\fB\-\-api\-key\fR \fI\,API_KEY\/\fR
+AnythingLLM API key (overrides ANYTHINGLLM_API_KEY). Visible in shell history
+and `ps`; prefer \-\-api\-key\-file or the env var for sensitive uses.
+
+.TP
+\fB\-\-api\-key\-file\fR \fI\,API_KEY_FILE\/\fR
+read the API key from this file (one line, trimmed)
+
+.TP
+\fB\-\-storage\-dir\fR \fI\,STORAGE_DIR\/\fR
+AnythingLLM storage directory for the disk\-usage report (overrides
+ANYTHINGLLM_STORAGE_DIR and config.json)
+
+.TP
+\fB\-\-http\-timeout\fR \fI\,HTTP_TIMEOUT\/\fR
+read/write timeout in seconds for AnythingLLM HTTP calls (overrides
+INGEST_HTTP_TIMEOUT; default 300). Connect timeout is fixed at 5 s.
+.RE
+
+.SS \fBingest list\fR
+list collections known to forage and our upload counts
+
+usage: ingest list [\-h] [\-v] [\-q] [\-\-json] [\-\-url URL] [\-\-api\-key API_KEY]
+                   [\-\-api\-key\-file API_KEY_FILE] [\-\-storage\-dir STORAGE_DIR]
+                   [\-\-http\-timeout HTTP_TIMEOUT]
+
+options:
+.RS 7
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+
+.TP
+\fB\-\-url\fR \fI\,URL\/\fR
+AnythingLLM base URL (overrides ANYTHINGLLM_URL and config.json)
+
+.TP
+\fB\-\-api\-key\fR \fI\,API_KEY\/\fR
+AnythingLLM API key (overrides ANYTHINGLLM_API_KEY). Visible in shell history
+and `ps`; prefer \-\-api\-key\-file or the env var for sensitive uses.
+
+.TP
+\fB\-\-api\-key\-file\fR \fI\,API_KEY_FILE\/\fR
+read the API key from this file (one line, trimmed)
+
+.TP
+\fB\-\-storage\-dir\fR \fI\,STORAGE_DIR\/\fR
+AnythingLLM storage directory for the disk\-usage report (overrides
+ANYTHINGLLM_STORAGE_DIR and config.json)
+
+.TP
+\fB\-\-http\-timeout\fR \fI\,HTTP_TIMEOUT\/\fR
+read/write timeout in seconds for AnythingLLM HTTP calls (overrides
+INGEST_HTTP_TIMEOUT; default 300). Connect timeout is fixed at 5 s.
+.RE
+
+.SS \fBingest check\fR
+verify AnythingLLM is reachable and the API key works
+
+usage: ingest check [\-h] [\-v] [\-q] [\-\-json] [\-\-url URL] [\-\-api\-key API_KEY]
+                    [\-\-api\-key\-file API_KEY_FILE] [\-\-storage\-dir STORAGE_DIR]
+                    [\-\-http\-timeout HTTP_TIMEOUT]
+
+options:
+.RS 7
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+
+.TP
+\fB\-\-url\fR \fI\,URL\/\fR
+AnythingLLM base URL (overrides ANYTHINGLLM_URL and config.json)
+
+.TP
+\fB\-\-api\-key\fR \fI\,API_KEY\/\fR
+AnythingLLM API key (overrides ANYTHINGLLM_API_KEY). Visible in shell history
+and `ps`; prefer \-\-api\-key\-file or the env var for sensitive uses.
+
+.TP
+\fB\-\-api\-key\-file\fR \fI\,API_KEY_FILE\/\fR
+read the API key from this file (one line, trimmed)
+
+.TP
+\fB\-\-storage\-dir\fR \fI\,STORAGE_DIR\/\fR
+AnythingLLM storage directory for the disk\-usage report (overrides
+ANYTHINGLLM_STORAGE_DIR and config.json)
+
+.TP
+\fB\-\-http\-timeout\fR \fI\,HTTP_TIMEOUT\/\fR
+read/write timeout in seconds for AnythingLLM HTTP calls (overrides
+INGEST_HTTP_TIMEOUT; default 300). Connect timeout is fixed at 5 s.
+.RE
+
+.SS \fBingest reset\fR
+drop local uploads.db for a collection (no remote changes)
+
+usage: ingest reset [\-h] [\-y] [\-v] [\-q] [\-\-json] [\-\-url URL]
+                    [\-\-api\-key API_KEY] [\-\-api\-key\-file API_KEY_FILE]
+                    [\-\-storage\-dir STORAGE_DIR] [\-\-http\-timeout HTTP_TIMEOUT]
+                    name
+
+arguments:
+.RS 7
+.TP
+\fBname\fR
+.RE
+
+
+options:
+.RS 7
+.TP
+\fB\-y\fR, \fB\-\-yes\fR
+
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+
+.TP
+\fB\-\-url\fR \fI\,URL\/\fR
+AnythingLLM base URL (overrides ANYTHINGLLM_URL and config.json)
+
+.TP
+\fB\-\-api\-key\fR \fI\,API_KEY\/\fR
+AnythingLLM API key (overrides ANYTHINGLLM_API_KEY). Visible in shell history
+and `ps`; prefer \-\-api\-key\-file or the env var for sensitive uses.
+
+.TP
+\fB\-\-api\-key\-file\fR \fI\,API_KEY_FILE\/\fR
+read the API key from this file (one line, trimmed)
+
+.TP
+\fB\-\-storage\-dir\fR \fI\,STORAGE_DIR\/\fR
+AnythingLLM storage directory for the disk\-usage report (overrides
+ANYTHINGLLM_STORAGE_DIR and config.json)
+
+.TP
+\fB\-\-http\-timeout\fR \fI\,HTTP_TIMEOUT\/\fR
+read/write timeout in seconds for AnythingLLM HTTP calls (overrides
+INGEST_HTTP_TIMEOUT; default 300). Connect timeout is fixed at 5 s.
+.RE
+
+.SS \fBingest purge\fR
+delete ALL ingest state (every collection's uploads.db and logs)
+
+usage: ingest purge [\-h] [\-y] [\-v] [\-q] [\-\-json] [\-\-url URL]
+                    [\-\-api\-key API_KEY] [\-\-api\-key\-file API_KEY_FILE]
+                    [\-\-storage\-dir STORAGE_DIR] [\-\-http\-timeout HTTP_TIMEOUT]
+
+options:
+.RS 7
+.TP
+\fB\-y\fR, \fB\-\-yes\fR
+
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+
+.TP
+\fB\-\-url\fR \fI\,URL\/\fR
+AnythingLLM base URL (overrides ANYTHINGLLM_URL and config.json)
+
+.TP
+\fB\-\-api\-key\fR \fI\,API_KEY\/\fR
+AnythingLLM API key (overrides ANYTHINGLLM_API_KEY). Visible in shell history
+and `ps`; prefer \-\-api\-key\-file or the env var for sensitive uses.
+
+.TP
+\fB\-\-api\-key\-file\fR \fI\,API_KEY_FILE\/\fR
+read the API key from this file (one line, trimmed)
+
+.TP
+\fB\-\-storage\-dir\fR \fI\,STORAGE_DIR\/\fR
+AnythingLLM storage directory for the disk\-usage report (overrides
+ANYTHINGLLM_STORAGE_DIR and config.json)
+
+.TP
+\fB\-\-http\-timeout\fR \fI\,HTTP_TIMEOUT\/\fR
+read/write timeout in seconds for AnythingLLM HTTP calls (overrides
+INGEST_HTTP_TIMEOUT; default 300). Connect timeout is fixed at 5 s.
+.RE
+
+
+.SH OPTIONS
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+
+.TP
+\fB\-\-url\fR \fI\,URL\/\fR
+AnythingLLM base URL (overrides ANYTHINGLLM_URL and config.json)
+
+.TP
+\fB\-\-api\-key\fR \fI\,API_KEY\/\fR
+AnythingLLM API key (overrides ANYTHINGLLM_API_KEY). Visible in shell history
+and `ps`; prefer \-\-api\-key\-file or the env var for sensitive uses.
+
+.TP
+\fB\-\-api\-key\-file\fR \fI\,API_KEY_FILE\/\fR
+read the API key from this file (one line, trimmed)
+
+.TP
+\fB\-\-storage\-dir\fR \fI\,STORAGE_DIR\/\fR
+AnythingLLM storage directory for the disk\-usage report (overrides
+ANYTHINGLLM_STORAGE_DIR and config.json)
+
+.TP
+\fB\-\-http\-timeout\fR \fI\,HTTP_TIMEOUT\/\fR
+read/write timeout in seconds for AnythingLLM HTTP calls (overrides
+INGEST_HTTP_TIMEOUT; default 300). Connect timeout is fixed at 5 s.
+
+.TP
+\fB\-\-print\-completion\fR \fI\,{bash,zsh,tcsh}\/\fR
+print shell completion script
+
+.SH AUTHOR
+.nf
+Michael Schuerig
+.fi
+
+.SH DISTRIBUTION
+The latest version of anythingllm\-feeder may be downloaded from
+.UR https://github.com/mschuerig/anythingllm\-feeder
+.UE
