@@ -92,7 +92,7 @@ jobs:
 
       - name: Verify via brew install
         run: |
-          set -e
+          set -ex
           # brew 4.x rejects loose formula files; they have to live inside a
           # tap directory. Drop the patched formula into mschuerig/tap's
           # canonical location, then install via the full tap qualifier the
