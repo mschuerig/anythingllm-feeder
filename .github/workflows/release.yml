@@ -77,7 +77,12 @@ jobs:
       - name: Verify via brew install
         run: |
           set -e
-          brew install --build-from-source --formula tap/Formula/anythingllm-feeder.rb
+          # Absolute path so brew treats it as a local formula file. A
+          # relative path containing slashes (`tap/Formula/...`) would be
+          # parsed as a `<tap>/<formula>` reference and brew would try to
+          # clone a non-existent github.com/tap/homebrew-Formula tap.
+          FORMULA="$GITHUB_WORKSPACE/tap/Formula/anythingllm-feeder.rb"
+          brew install --build-from-source --formula "$FORMULA"
           forage --version
           ingest --version
           forage --help > /dev/null

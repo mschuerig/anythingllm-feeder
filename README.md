@@ -440,4 +440,4 @@ uv run ingest --help
 
 forage's suite stubs out docling and mlx-whisper, so heavy libraries are never imported. ingest's suite wires `httpx.MockTransport` to an in-memory fake AnythingLLM and builds fake forage state in temp dirs. Neither suite touches real state directories — each test redirects `ANYTHINGLLM_FEEDER_APP_SUPPORT` per test, and an autouse fixture monkeypatches `send2trash` to `shutil.rmtree` so `purge`-path tests never reach the user's actual Trash.
 
-See `SPEC-forage.md` and `SPEC-ingest.md` for the design specifications, and `CLAUDE.md` for repo-wide conventions.
+See `SPEC-forage.md` and `SPEC-ingest.md` for the design specifications, `CLAUDE.md` for repo-wide conventions, and `DEVELOPMENT.md` for the release workflow.
