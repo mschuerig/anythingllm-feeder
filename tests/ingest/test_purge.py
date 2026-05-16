@@ -14,7 +14,9 @@ def _seed_ingest_collection(root: Path, name: str) -> None:
     (coll / "ingest.log").write_text("")
 
 
-def test_purge_removes_toolkit_root(app_support: Path) -> None:
+def test_purge_removes_toolkit_root(
+    app_support: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     _seed_ingest_collection(app_support, "news")
     (app_support / "ingest").mkdir(exist_ok=True)
     (app_support / "ingest" / "config.json").write_text("{}")
@@ -23,6 +25,9 @@ def test_purge_removes_toolkit_root(app_support: Path) -> None:
 
     assert rc == 0
     assert not app_support.exists()
+    out = capsys.readouterr().out
+    assert "huggingface" in out
+    assert "NOT removed" in out
 
 
 def test_purge_with_no_state_is_noop(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

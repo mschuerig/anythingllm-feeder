@@ -2,11 +2,18 @@ from __future__ import annotations
 
 import argparse
 import sys
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
 from pathlib import Path
 
 import shtab
 
 from ingest import config, log
+
+try:
+    _VERSION = _pkg_version("anythingllm-feeder")
+except PackageNotFoundError:
+    _VERSION = "dev"
 from ingest.commands.check import cmd_check
 from ingest.commands.list_ import cmd_list
 from ingest.commands.purge import cmd_purge
@@ -75,6 +82,9 @@ def _add_global_flags(p: argparse.ArgumentParser) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="ingest")
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {_VERSION}"
+    )
     _add_global_flags(parser)
     shtab.add_argument_to(parser, ["--print-completion"])
     sub = parser.add_subparsers(dest="command", required=True)

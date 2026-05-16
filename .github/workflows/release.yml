@@ -1,0 +1,101 @@
+name: Release
+
+# Triggered by pushing a tag like `v0.1.0`. Computes the tarball sha256,
+# patches mschuerig/homebrew-tap's formula, verifies via `brew install`
+# on an Apple-Silicon runner, then commits + pushes the tap.
+#
+# Requires a fine-grained personal access token in repo secret
+# HOMEBREW_TAP_TOKEN, scoped to mschuerig/homebrew-tap with
+# `Contents: read and write`.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - name: Compute version, URL, sha256
+        id: meta
+        env:
+          REPO: ${{ github.repository }}
+          REF: ${{ github.ref_name }}
+        run: |
+          VERSION="${REF#v}"
+          URL="https://github.com/${REPO}/archive/refs/tags/${REF}.tar.gz"
+          # GitHub can take a moment to publish the tarball after a tag push.
+          for i in 1 2 3 4 5 6; do
+            if curl -fsSL --output /tmp/src.tar.gz "$URL"; then
+              break
+            fi
+            sleep 10
+          done
+          if [ ! -s /tmp/src.tar.gz ]; then
+            echo "could not fetch $URL" >&2
+            exit 1
+          fi
+          SHA256=$(shasum -a 256 /tmp/src.tar.gz | cut -d' ' -f1)
+          {
+            echo "version=$VERSION"
+            echo "url=$URL"
+            echo "sha256=$SHA256"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v4
+        with:
+          repository: mschuerig/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+
+      - name: Patch formula
+        env:
+          VERSION: ${{ steps.meta.outputs.version }}
+          URL: ${{ steps.meta.outputs.url }}
+          SHA256: ${{ steps.meta.outputs.sha256 }}
+        run: |
+          python3 <<'PY'
+          import os, re, pathlib
+          version = os.environ["VERSION"]
+          url     = os.environ["URL"]
+          sha     = os.environ["SHA256"]
+          path = pathlib.Path("tap/Formula/anythingllm-feeder.rb")
+          src = path.read_text()
+          src = re.sub(r'^(\s*url\s+")[^"]+"',    lambda m: m.group(1) + url + '"', src, count=1, flags=re.M)
+          src = re.sub(r'^(\s*sha256\s+")[^"]+"', lambda m: m.group(1) + sha + '"', src, count=1, flags=re.M)
+          path.write_text(src)
+          print(f"patched -> v{version}")
+          PY
+          head -20 tap/Formula/anythingllm-feeder.rb
+
+      - name: Verify via brew install
+        run: |
+          set -e
+          brew install --build-from-source --formula tap/Formula/anythingllm-feeder.rb
+          forage --version
+          ingest --version
+          forage --help > /dev/null
+          ingest --help > /dev/null
+          forage doctor
+          man forage > /dev/null
+          man ingest > /dev/null
+          brew uninstall anythingllm-feeder
+
+      - name: Commit + push to tap
+        working-directory: tap
+        run: |
+          if git diff --quiet -- Formula/anythingllm-feeder.rb; then
+            echo "Tap already at this version; nothing to push."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/anythingllm-feeder.rb
+          git commit -m "anythingllm-feeder v${{ steps.meta.outputs.version }}"
+          git push

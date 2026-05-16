@@ -415,6 +415,18 @@ rm -rf ~/.local/share/anythingllm-feeder
 
 Documents already uploaded into AnythingLLM stay there — ingest only manages upload bookkeeping. To remove the documents themselves, delete the corresponding workspaces inside AnythingLLM.
 
+### Downloaded model weights
+
+forage's docling and mlx-whisper extractors download their model weights via Hugging Face Hub on first use. Those weights cache under `~/.cache/huggingface/hub/`, which is the standard Hugging Face cache location — **shared** with any other tool on your machine that uses the same models (Jupyter notebooks running whisper, a different transcription app, etc.). Because the cache might not be ours to throw away, `brew uninstall` and `forage purge` both leave it alone.
+
+If you're certain no other tool on this machine needs that cache, free the space with:
+
+```sh
+rm -rf ~/.cache/huggingface/hub
+```
+
+A whisper model is typically 1–3 GB; docling's models are smaller. If something else does need them, leave the cache alone — those tools will silently re-download otherwise.
+
 ---
 
 ## For developers

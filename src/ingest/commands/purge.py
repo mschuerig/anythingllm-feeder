@@ -52,4 +52,8 @@ def cmd_purge(args: argparse.Namespace) -> int:
 
     send2trash(str(root))
     print(f"moved {root} to Trash")
+    print(
+        "note: downloaded model weights at ~/.cache/huggingface/hub/ are "
+        "NOT removed (shared with other Hugging Face tools)."
+    )
     return 0

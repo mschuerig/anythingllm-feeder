@@ -85,6 +85,8 @@ def test_purge_prints_summary(
     assert "news" in out
     assert "papers" in out
     assert "Trash" in out
+    assert "huggingface" in out
+    assert "NOT removed" in out
 
 
 def test_purge_uses_send2trash(

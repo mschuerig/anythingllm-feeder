@@ -2,10 +2,17 @@ from __future__ import annotations
 
 import argparse
 import sys
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as _pkg_version
 
 import shtab
 
 from forage import config, log
+
+try:
+    _VERSION = _pkg_version("anythingllm-feeder")
+except PackageNotFoundError:
+    _VERSION = "dev"
 from forage.commands.create import cmd_create
 from forage.commands.doctor import cmd_doctor
 from forage.commands.info import cmd_info
@@ -40,6 +47,9 @@ def _add_global_flags(p: argparse.ArgumentParser) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="forage")
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {_VERSION}"
+    )
     _add_global_flags(parser)
     shtab.add_argument_to(parser, ["--print-completion"])
     sub = parser.add_subparsers(dest="command", required=True)
