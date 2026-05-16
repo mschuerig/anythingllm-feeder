@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import platform
+import sys
 from pathlib import Path
 
 from forage.extractors.base import ExtractionResult, ExtractorError
@@ -21,6 +23,10 @@ class DoclingExtractor:
     def _get_converter(self):
         if self._converter is None:
             try:
+                from docling.datamodel.accelerator_options import (
+                    AcceleratorDevice,
+                    AcceleratorOptions,
+                )
                 from docling.datamodel.base_models import InputFormat
                 from docling.datamodel.pipeline_options import PdfPipelineOptions
                 from docling.document_converter import (
@@ -33,6 +39,21 @@ class DoclingExtractor:
                 ) from e
             pdf_opts = PdfPipelineOptions()
             pdf_opts.do_ocr = self.do_ocr
+            # Route docling's layout/table/OCR models through the GPU on Apple
+            # Silicon; docling's AUTO has historically picked CPU here, so be
+            # explicit. DOCLING_DEVICE / DOCLING_NUM_THREADS env vars still
+            # win because AcceleratorOptions reads them on construction.
+            is_apple_silicon = (
+                sys.platform == "darwin" and platform.machine() == "arm64"
+            )
+            pdf_opts.accelerator_options = AcceleratorOptions(
+                device=(
+                    AcceleratorDevice.MPS
+                    if is_apple_silicon
+                    else AcceleratorDevice.AUTO
+                ),
+                num_threads=8,
+            )
             # Table-structure stays at docling's default (on).
             self._converter = DocumentConverter(
                 format_options={
