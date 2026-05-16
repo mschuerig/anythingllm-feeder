@@ -1,6 +1,6 @@
 # anythingllm-feeder
 
-Two small command-line tools that together turn folders of documents and videos into a searchable knowledge base inside a local **AnythingLLM** instance.
+Two small command-line tools that together turn folders of documents and videos into a searchable knowledge base inside a local [**AnythingLLM**](https://anythingllm.com/) instance.
 
 - **`forage`** scans your source folders and extracts every document/video to Markdown.
 - **`ingest`** uploads forage's Markdown into AnythingLLM and keeps the workspace in sync as you add, change, or delete files.
