@@ -3,24 +3,32 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 from pathlib import Path
 
+from _shared.timestamps import utc_now
 from forage import paths
+
+__all__ = [
+    "ConfigError",
+    "utc_now",
+    "validate_name",
+    "Source",
+    "CollectionConfig",
+    "GlobalConfig",
+    "load_global",
+    "save_global",
+    "load_collection",
+    "save_collection",
+    "list_collections",
+    "collection_exists",
+    "parse_source_arg",
+]
 
 NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 
 class ConfigError(Exception):
     pass
-
-
-def utc_now() -> str:
-    return (
-        datetime.now(timezone.utc)
-        .isoformat(timespec="seconds")
-        .replace("+00:00", "Z")
-    )
 
 
 def validate_name(name: str, kind: str = "name") -> None:
