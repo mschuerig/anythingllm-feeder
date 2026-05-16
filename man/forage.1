@@ -1,9 +1,9 @@
-.TH FORAGE "1" "2026\-05\-16" "anythingllm\-feeder 0.1.0" "Generated Python Manual"
+.TH FORAGE "1" "2026\-05\-17" "anythingllm\-feeder 0.1.8" "Generated Python Manual"
 .SH NAME
 forage \- Extract documents and videos to Markdown, organized as named collections of sources.
 .SH SYNOPSIS
 .B forage
-[-h] [-v] [-q] [--json] [--print-completion {bash,zsh,tcsh}] {create,list,info,update,transcribe,repair,add-source,remove-source,set-source,rename,remove,purge,doctor} ...
+[-h] [--version] [-v] [-q] [--json] [--print-completion {bash,zsh,tcsh}] {create,list,info,update,transcribe,repair,add-source,remove-source,set-source,rename,remove,purge,doctor,install-extras} ...
 
 .SH
 POSITIONAL ARGUMENTS
@@ -420,8 +420,38 @@ options:
 machine\-readable JSON output where applicable
 .RE
 
+.SS \fBforage install\-extras\fR
+install the optional heavy deps (docling, mlx-whisper) into forage's venv
+
+usage: forage install\-extras [\-h] [\-\-upgrade] [\-\-force] [\-v] [\-q] [\-\-json]
+
+options:
+.RS 7
+.TP
+\fB\-\-upgrade\fR
+pass \-\-upgrade to pip (refresh already\-installed extras)
+
+.TP
+\fB\-\-force\fR
+run pip even if both extras already appear installed
+
+.TP
+\fB\-v\fR, \fB\-\-verbose\fR
+
+.TP
+\fB\-q\fR, \fB\-\-quiet\fR
+
+.TP
+\fB\-\-json\fR
+machine\-readable JSON output where applicable
+.RE
+
 
 .SH OPTIONS
+.TP
+\fB\-\-version\fR
+show program's version number and exit
+
 .TP
 \fB\-v\fR, \fB\-\-verbose\fR
 

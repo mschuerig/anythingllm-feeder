@@ -19,6 +19,12 @@ Both share a small `src/_shared/` package for platform-path resolution, logging 
 - **Logging** is set up via each tool's `log.py`, which delegates to `_shared.log`. One logger per tool fans out to stderr (filtered by `-v`/`-q`) and to the active collection's `*.log` file.
 - **Test isolation**: every test redirects `ANYTHINGLLM_FEEDER_APP_SUPPORT` to a tmp dir via the `app_support` fixture in the relevant `conftest.py`. Both conftests also install an autouse fixture that monkeypatches `send2trash` to `shutil.rmtree` so `purge`-path tests never touch the developer's real Trash.
 
+## Distribution
+
+- **Homebrew install (`mschuerig/tap/anythingllm-feeder`) ships core only** — `httpx`, `send2trash`, `shtab`, the project. End users add docling + mlx-whisper post-install via `forage install-extras` (runs the formula venv's pip; not subject to brew's sandbox).
+- `pyproject.toml`'s `[all]` extra is for source installs (`uv sync --extra all`), not the brew path.
+- Release flow is automated via `.github/workflows/release.yml` on `v*` tags; see `DEVELOPMENT.md`.
+
 ## forage-specific (`src/forage/`)
 
 - DB writes go through typed functions in `src/forage/db.py`. Don't inline SQL in commands.

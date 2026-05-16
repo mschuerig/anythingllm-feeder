@@ -66,14 +66,19 @@ The fastest path on **macOS (Apple Silicon)** is Homebrew via a personal tap. An
 
 ```sh
 brew install mschuerig/tap/anythingllm-feeder
+forage install-extras                          # optional, see below
 ```
 
-This pulls in `ffmpeg`, installs `forage` and `ingest` into an isolated virtualenv, drops zsh and bash completions, and installs man pages (`man forage`, `man ingest`).
+The first command pulls in `ffmpeg`, installs `forage` and `ingest` into an isolated virtualenv, drops zsh and bash completions, and installs man pages (`man forage`, `man ingest`). The install itself is small and fast — just `httpx`, `send2trash`, `shtab`, and the project.
+
+The second command (`forage install-extras`) is what brings in the heavy lifting: [`docling`](https://github.com/docling-project/docling) for PDF/Office extraction and [`mlx-whisper`](https://github.com/ml-explore/mlx-examples/tree/main/whisper) for audio/video transcription. It runs pip against the formula's venv and downloads roughly **3–5 GB** (PyTorch is the bulk). Why isn't it bundled into the brew install? Because Homebrew's post-install Mach-O relocator doesn't play nicely with some of the wheels these libraries pull in, and the source-build workaround needs Cargo, which Homebrew's build sandbox blocks. Running pip outside the sandbox sidesteps both problems.
+
+You can skip `install-extras` if you only want `ingest` (uploading already-extracted Markdown to AnythingLLM) or if you'll run `forage` against pre-extracted output.
 
 A few things to know up front:
 
-- **Big download.** The bundle includes [`docling`](https://github.com/docling-project/docling) (PDF/Office extraction) and [`mlx-whisper`](https://github.com/ml-explore/mlx-examples/tree/main/whisper) (audio/video transcription). Together they pull in PyTorch and ship roughly **3–5 GB** of Python packages. First install takes a few minutes; subsequent upgrades are smaller.
 - **Apple Silicon only.** `mlx-whisper` requires the Apple Neural Engine, so the formula refuses to install on Intel Macs and Linux. On those platforms use the source install below.
+- **Re-run `forage install-extras` after `brew upgrade`** — each version installs into a fresh venv.
 - **AnythingLLM is separate.** Install via `brew install --cask anythingllm` if you want to use `ingest`.
 - **State lives outside the keg.** Your collections, extracted Markdown, and upload bookkeeping live in `~/Library/Application Support/anythingllm-feeder/` and survive `brew upgrade` and `brew uninstall`. See **Uninstalling** below for a clean wipe.
 
@@ -192,6 +197,7 @@ Each supports `-v`/`-q` and `--json` where useful.
 | `forage transcribe <name>` / `--all` | Drain the transcription queue. |
 | `forage repair <name>` | Read-only consistency check. Add `--rebuild` to regenerate `state.db` from disk. |
 | `forage doctor` | Run the read-only consistency check across **every** collection; one line of output per collection, non-zero exit on any anomaly. See [`IN_CASE_OF_ERRORS.md`](./IN_CASE_OF_ERRORS.md). |
+| `forage install-extras` | Install docling and mlx-whisper into the venv this `forage` is running in. Needed once after a Homebrew install (or after `brew upgrade`). No-op if both are already importable. |
 | `forage purge -y` | Move the entire `anythingllm-feeder/` data root (forage **and** ingest state) to Trash. Refuses while a collection is in use. See **Uninstalling**. |
 
 Useful `update` flags: `--source <name>`, `--ext pdf,mp4`, `--orphans list|delete|ignore` (default `list`), `--defer-video`, `--dry-run`, `--ocr` / `--no-ocr` (force OCR on/off for this run without touching the collection's saved setting).

@@ -97,16 +97,10 @@ jobs:
           mkdir -p "$TAP_DIR/Formula"
           cp tap/Formula/anythingllm-feeder.rb "$TAP_DIR/Formula/"
 
-          # Tolerate non-zero exit from brew install: the formula may emit
-          # cosmetic "Failed to fix install linkage" warnings for wheels
-          # whose Mach-O headerpad is too tight. Python extensions load by
-          # filesystem path, not install ID, so this doesn't break anything
-          # at runtime. We verify the install actually happened below.
-          brew install --build-from-source mschuerig/tap/anythingllm-feeder \
-            || echo "::warning::brew install exit non-zero; verifying install state below"
+          # Core-only install: no docling/mlx-whisper bundled. Should be a
+          # ~30-second pure-Python install with no Mach-O relocator drama.
+          brew install --build-from-source mschuerig/tap/anythingllm-feeder
 
-          test -x /opt/homebrew/bin/forage
-          test -x /opt/homebrew/bin/ingest
           forage --version
           ingest --version
           forage --help > /dev/null

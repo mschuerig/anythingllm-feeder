@@ -2,6 +2,14 @@
 
 End-user docs are in `README.md`; design specs are in `SPEC-forage.md` and `SPEC-ingest.md`; project-internal conventions are in `CLAUDE.md`. This file covers the **release flow** and one-time setup of the publishing pipeline.
 
+## Distribution model
+
+The Homebrew formula ships a **core-only** install: `httpx`, `send2trash`, `shtab`, and the project itself. The heavy ML extras (`docling`, `mlx-whisper`) are NOT in the brew bundle. End users add them post-install with `forage install-extras`, which runs the formula's venv `pip` outside Homebrew's build sandbox.
+
+Why split it this way: Homebrew's `Language::Python::Virtualenv` pattern assumes PyPI sdists. PyTorch (via docling) and mlx (via mlx-whisper) are wheel-only. Their wheels conflict with Homebrew's post-install Mach-O relocator (rpds-py's headerpad is too small for the keg path; the relocator fails the install). The source-build workaround needs Cargo, which the build sandbox blocks. Doing the heavy install with plain pip outside brew sidesteps both walls.
+
+The `[all]` extra in `pyproject.toml` still exists for source installs (`uv sync --extra all`), which is the documented dev/Linux/Intel path. It's just not used by the brew formula.
+
 ## Local dev loop
 
 ```sh

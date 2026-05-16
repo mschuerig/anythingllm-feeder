@@ -16,6 +16,7 @@ except PackageNotFoundError:
 from forage.commands.create import cmd_create
 from forage.commands.doctor import cmd_doctor
 from forage.commands.info import cmd_info
+from forage.commands.install_extras import cmd_install_extras
 from forage.commands.list_ import cmd_list
 from forage.commands.purge import cmd_purge
 from forage.commands.remove import cmd_remove
@@ -174,6 +175,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     _add_global_flags(p_doctor)
 
+    p_extras = sub.add_parser(
+        "install-extras",
+        help="install the optional heavy deps (docling, mlx-whisper) into forage's venv",
+    )
+    p_extras.add_argument("--upgrade", action="store_true",
+                          help="pass --upgrade to pip (refresh already-installed extras)")
+    p_extras.add_argument("--force", action="store_true",
+                          help="run pip even if both extras already appear installed")
+    _add_global_flags(p_extras)
+
     return parser
 
 
@@ -196,6 +207,7 @@ _HANDLERS = {
     "remove": cmd_remove,
     "purge": cmd_purge,
     "doctor": cmd_doctor,
+    "install-extras": cmd_install_extras,
 }
 
 

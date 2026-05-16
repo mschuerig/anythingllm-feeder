@@ -52,6 +52,12 @@ def get_extractor(name: str) -> Extractor:
     raise ExtractorError(f"unknown extractor: {name}")
 
 
+_EXTRAS_HINT = (
+    "Run `forage install-extras` to add docling (PDF/Office) and "
+    "mlx-whisper (audio/video) to this install."
+)
+
+
 def get_docling(*, do_ocr: bool) -> Extractor:
     """Return a docling extractor configured for the given OCR setting.
 
@@ -60,7 +66,13 @@ def get_docling(*, do_ocr: bool) -> Extractor:
     """
     key = ("docling", bool(do_ocr))
     if key not in _REGISTRY:
-        from forage.extractors.docling import DoclingExtractor
+        try:
+            from forage.extractors.docling import DoclingExtractor
+        except ImportError as exc:
+            raise ExtractorError(
+                f"docling is not installed in this Python ({exc.name}). "
+                + _EXTRAS_HINT
+            ) from exc
         _REGISTRY[key] = DoclingExtractor(do_ocr=do_ocr)
     return _REGISTRY[key]
 
@@ -81,7 +93,13 @@ def get_whisper(model: str | None = None) -> Extractor:
     else:
         key = ("mlx-whisper", model)
     if key not in _REGISTRY:
-        from forage.extractors.whisper import WhisperExtractor
+        try:
+            from forage.extractors.whisper import WhisperExtractor
+        except ImportError as exc:
+            raise ExtractorError(
+                f"mlx-whisper is not installed in this Python ({exc.name}). "
+                + _EXTRAS_HINT
+            ) from exc
         _REGISTRY[key] = (
             WhisperExtractor() if model is None else WhisperExtractor(model=model)
         )
