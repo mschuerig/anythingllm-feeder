@@ -114,13 +114,51 @@ jobs:
       - name: Dump brew install logs on failure
         if: failure()
         run: |
-          echo "=== Homebrew install logs ==="
-          for f in "$HOME"/Library/Logs/Homebrew/anythingllm-feeder/*; do
-            [ -f "$f" ] || continue
-            echo
-            echo "--- $f ---"
-            cat "$f"
-          done
+          echo "=== All Homebrew log files ==="
+          find "$HOME/Library/Logs/Homebrew" -type f -print0 2>/dev/null \
+            | while IFS= read -r -d '' f; do
+                echo
+                echo "--- $f ---"
+                cat "$f"
+              done
+
+      - name: Run pip install directly on failure
+        if: failure()
+        env:
+          URL: ${{ steps.meta.outputs.url }}
+        run: |
+          # Brew is hiding pip's output for some reason. Run pip ourselves
+          # outside the brew install machinery so its stdout/stderr lands
+          # in the workflow log directly.
+          set +e
+          echo "=== Environment ==="
+          sw_vers
+          uname -a
+          df -h /
+          which python3.12 || brew install --quiet python@3.12
+          python3.12 --version
+
+          echo
+          echo "=== Fetch source tarball ==="
+          rm -rf /tmp/diag && mkdir -p /tmp/diag
+          cd /tmp/diag
+          curl -fsSL "$URL" -o src.tar.gz
+          tar xzf src.tar.gz
+          cd anythingllm-feeder-*/
+          echo "cwd=$(pwd)"
+          ls -la
+
+          echo
+          echo "=== Create venv + bootstrap pip ==="
+          python3.12 -m venv /tmp/diag-venv
+          /tmp/diag-venv/bin/python -m ensurepip --upgrade
+          /tmp/diag-venv/bin/pip --version
+
+          echo
+          echo "=== Run pip install -v '.[all]' ==="
+          /tmp/diag-venv/bin/pip install -v '.[all]'
+          echo
+          echo "=== Exit code: $? ==="
 
       - name: Commit + push to tap
         working-directory: tap
