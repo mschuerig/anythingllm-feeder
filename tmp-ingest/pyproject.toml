@@ -1,0 +1,25 @@
+[project]
+name = "ingest"
+version = "0.1.0"
+description = "Upload forage-extracted documents to a local AnythingLLM instance"
+requires-python = ">=3.11"
+authors = [{ name = "Michael Schuerig", email = "michael@schuerig.de" }]
+readme = "README.md"
+dependencies = ["httpx>=0.27"]
+
+[project.optional-dependencies]
+dev = ["pytest"]
+
+[project.scripts]
+ingest = "ingest.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ingest"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
