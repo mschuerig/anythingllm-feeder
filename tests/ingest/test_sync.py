@@ -343,6 +343,31 @@ def test_target_folder_created_once_per_source_per_run(
     assert len(create_calls) == 1  # one source → one create-folder call
 
 
+def test_empty_markdown_is_not_uploaded(
+    ingest_home: Path,
+    forage_home: Path,
+    fake_server: FakeAnythingLLM,
+    client_factory,
+    make_forage_collection,
+) -> None:
+    """Belt-and-suspenders guard: even if forage somehow flagged an empty
+    extraction as status=ok, ingest must refuse to upload it."""
+    files = [
+        FakeForageFile("notes", "good.md", "H1", "ok", "notes/good.md",
+                       content="# Real content\n"),
+        FakeForageFile("notes", "empty.md", "H2", "ok", "notes/empty.md",
+                       content="   \n\n"),
+    ]
+    make_forage_collection("demo", files)
+
+    result = sync_collection("demo", client=client_factory())
+    assert result.uploaded == 1
+    assert result.failed == 1
+    titles = [d.title for d in fake_server.documents.values()]
+    assert any("good" in t for t in titles)
+    assert not any("empty" in t for t in titles)
+
+
 def test_failed_extraction_causes_orphan_deletion(
     ingest_home: Path,
     forage_home: Path,

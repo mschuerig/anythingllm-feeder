@@ -69,4 +69,32 @@ class DoclingExtractor:
             md = result.document.export_to_markdown()
         except Exception as e:
             raise ExtractorError(f"docling: {e}") from e
-        return ExtractionResult(markdown=md, extractor=self.name)
+        if md.strip():
+            return ExtractionResult(markdown=md, extractor=self.name)
+        if src.suffix.lower() in _HTML_EXTS:
+            fallback = _html2text_extract(src)
+            if fallback is not None and fallback.strip():
+                return ExtractionResult(markdown=fallback, extractor="html2text")
+        raise ExtractorError("docling produced empty output")
+
+
+_HTML_EXTS = frozenset({".html", ".htm"})
+
+
+def _html2text_extract(src: Path) -> str | None:
+    """Best-effort HTML→Markdown conversion as a fallback when docling
+    yields empty output. Returns None if html2text isn't importable or the
+    file can't be read.
+    """
+    try:
+        import html2text
+    except ImportError:
+        return None
+    try:
+        html = src.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    h = html2text.HTML2Text()
+    h.body_width = 0
+    h.ignore_images = True
+    return h.handle(html)

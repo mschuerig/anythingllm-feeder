@@ -303,6 +303,10 @@ def _upload_one(
     ensured_folders: set[str],
 ) -> None:
     text = _read_markdown(output_root, row)
+    if not text.strip():
+        raise ValueError(
+            f"refusing to upload empty document: {row.source}/{row.path}"
+        )
     upload = client.upload_raw_text(
         text_content=text,
         title=_doc_title(row),

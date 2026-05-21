@@ -165,6 +165,7 @@ Source names are unique within a collection. Each source path must be an existin
 - OCR is **on by default** (safe choice — born-digital PDFs are still extracted natively; OCR is a supplementary pass that catches text in scanned pages and image regions). Each collection's `config.json` has a top-level `do_ocr` boolean (default `true`); set it to `false` to skip the OCR pass entirely, which makes runs noticeably faster on corpora with no scanned material.
 - Table-structure on (docling default).
 - On exception, record `status: failed` with the exception's message.
+- If `export_to_markdown()` returns empty/whitespace-only text (docling occasionally succeeds-with-nothing on table-only HTML and similar inputs), apply a fallback for `.html`/`.htm` sources: run `html2text` on the raw file. If that produces non-empty Markdown, write it and record `extractor: html2text` on the row. If the fallback is unavailable or also yields nothing, treat it as `status: failed` with detail "docling produced empty output"; no `.md` is written. Re-extraction happens on the next `update` after the source file changes.
 
 ### mlx-whisper
 

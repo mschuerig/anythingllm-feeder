@@ -21,7 +21,7 @@ Both share a small `src/_shared/` package for platform-path resolution, logging 
 
 ## Distribution
 
-- **Homebrew install (`mschuerig/tap/anythingllm-feeder`) ships core only** — `httpx`, `send2trash`, `shtab`, the project. End users add docling + mlx-whisper post-install via `forage install-extras` (runs the formula venv's pip; not subject to brew's sandbox).
+- **Homebrew install (`mschuerig/tap/anythingllm-feeder`) ships core only** — `httpx`, `send2trash`, `shtab`, the project. End users add docling + html2text + mlx-whisper post-install via `forage install-extras` (runs the formula venv's pip; not subject to brew's sandbox).
 - `pyproject.toml`'s `[all]` extra is for source installs (`uv sync --extra all`), not the brew path.
 - Release flow is automated via `.github/workflows/release.yml` on `v*` tags; see `DEVELOPMENT.md`.
 
@@ -30,7 +30,7 @@ Both share a small `src/_shared/` package for platform-path resolution, logging 
 - DB writes go through typed functions in `src/forage/db.py`. Don't inline SQL in commands.
 - Extraction outputs are atomic: write to `<path>.tmp`, fsync, rename. Centralized in `src/forage/output.py`.
 - Whisper heuristic thresholds (boilerplate list, repetition count, density, logprob) live as module-level constants near the top of `src/forage/extractors/whisper.py`.
-- `src/forage/extractors/` is the only place that may import heavy optional dependencies (docling, mlx-whisper). Imports are lazy via `forage.extractors.get_extractor` — `forage.extractors._REGISTRY` is monkeypatched in tests so the real libraries are never loaded.
+- `src/forage/extractors/` is the only place that may import heavy optional dependencies (docling, mlx-whisper). Imports are lazy via `forage.extractors.get_extractor` — `forage.extractors._REGISTRY` is monkeypatched in tests so the real libraries are never loaded. `html2text` is also lazy-imported there as docling's HTML fallback (see `DoclingExtractor.extract`).
 
 ## ingest-specific (`src/ingest/`)
 

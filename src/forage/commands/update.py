@@ -187,7 +187,7 @@ def _process_item(
             db.FileRow(
                 source=item.source, path=item.rel,
                 sha256=sha, mtime=item.mtime, size=item.size,
-                output_path=out_rel, extractor="docling",
+                output_path=out_rel, extractor=result.extractor,
                 status="ok", status_detail=None,
                 extracted_at=now, updated_at=now,
             ),

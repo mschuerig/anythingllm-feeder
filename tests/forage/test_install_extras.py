@@ -15,7 +15,7 @@ def test_install_extras_skips_when_both_present(
     """If both extras report as already importable, the command no-ops."""
     monkeypatch.setattr(
         "forage.commands.install_extras._is_already_installed",
-        lambda: (True, True),
+        lambda: (True, True, True),
     )
 
     rc = main(["install-extras"])
@@ -31,7 +31,7 @@ def test_install_extras_invokes_pip(
     """Missing-extras path calls subprocess.run with the venv's python -m pip install."""
     monkeypatch.setattr(
         "forage.commands.install_extras._is_already_installed",
-        lambda: (False, False),
+        lambda: (False, False, False),
     )
 
     captured: dict = {}
@@ -45,7 +45,7 @@ def test_install_extras_invokes_pip(
         # report success.
         monkeypatch.setattr(
             "forage.commands.install_extras._is_already_installed",
-            lambda: (True, True),
+            lambda: (True, True, True),
         )
         return _Result()
 
@@ -58,6 +58,7 @@ def test_install_extras_invokes_pip(
     assert cmd[0] == sys.executable
     assert cmd[1:4] == ["-m", "pip", "install"]
     assert "docling" in cmd
+    assert "html2text" in cmd
     assert "mlx-whisper" in cmd
     assert "done" in capsys.readouterr().out.lower()
 

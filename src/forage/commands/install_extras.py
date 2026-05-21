@@ -22,24 +22,26 @@ import argparse
 import subprocess
 import sys
 
-EXTRAS = ("docling", "mlx-whisper")
+EXTRAS = ("docling", "html2text", "mlx-whisper")
 
 
-def _is_already_installed() -> tuple[bool, bool]:
-    """Return (has_docling, has_mlx_whisper) without importing the heavy code."""
+def _is_already_installed() -> tuple[bool, bool, bool]:
+    """Return (has_docling, has_html2text, has_mlx_whisper) without importing
+    the heavy code."""
     import importlib.util
 
     return (
         importlib.util.find_spec("docling") is not None,
+        importlib.util.find_spec("html2text") is not None,
         importlib.util.find_spec("mlx_whisper") is not None,
     )
 
 
 def cmd_install_extras(args: argparse.Namespace) -> int:
-    has_docling, has_whisper = _is_already_installed()
+    has_docling, has_html2text, has_whisper = _is_already_installed()
 
-    if has_docling and has_whisper and not getattr(args, "force", False):
-        print("extras already installed (docling, mlx-whisper)")
+    if has_docling and has_html2text and has_whisper and not getattr(args, "force", False):
+        print("extras already installed (docling, html2text, mlx-whisper)")
         return 0
 
     pkgs = list(EXTRAS)
@@ -62,10 +64,12 @@ def cmd_install_extras(args: argparse.Namespace) -> int:
         print(f"error: pip install failed with exit code {rc}", file=sys.stderr)
         return rc
 
-    has_docling, has_whisper = _is_already_installed()
+    has_docling, has_html2text, has_whisper = _is_already_installed()
     missing = []
     if not has_docling:
         missing.append("docling")
+    if not has_html2text:
+        missing.append("html2text")
     if not has_whisper:
         missing.append("mlx-whisper")
     if missing:

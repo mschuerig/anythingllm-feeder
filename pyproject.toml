@@ -9,9 +9,9 @@ license = { file = "LICENSE" }
 dependencies = ["httpx>=0.27", "send2trash>=1.8", "shtab>=1.7"]
 
 [project.optional-dependencies]
-docling = ["docling"]
+docling = ["docling", "html2text>=2024.2.26"]
 whisper = ["mlx-whisper"]
-all = ["docling", "mlx-whisper"]
+all = ["docling", "html2text>=2024.2.26", "mlx-whisper"]
 dev = ["pytest", "argparse-manpage>=4.5"]
 
 [project.scripts]
