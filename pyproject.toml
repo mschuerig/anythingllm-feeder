@@ -1,6 +1,6 @@
 [project]
 name = "anythingllm-feeder"
-version = "0.2.0"
+version = "0.2.1"
 description = "Extract documents and videos to Markdown (forage) and upload them into a local AnythingLLM (ingest)"
 requires-python = ">=3.11"
 authors = [{ name = "Michael Schuerig", email = "michael@schuerig.de" }]
