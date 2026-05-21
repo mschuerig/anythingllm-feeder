@@ -24,7 +24,7 @@ jobs:
       - name: Checkout source
         # Needed so the pip-cache step can hash pyproject.toml. Defaults to
         # the tag's commit (github.ref) for tag-push events.
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Compute version, URL, sha256
         id: meta
@@ -53,7 +53,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Checkout homebrew-tap
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: mschuerig/homebrew-tap
           token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
@@ -63,7 +63,7 @@ jobs:
         # Reuse downloaded wheels (torch is ~2.5 GB) across releases.
         # `restore-keys` falls back to an older cache when pyproject.toml
         # changes, so the runner only downloads what actually changed.
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/Library/Caches/pip
           key: pip-${{ runner.os }}-${{ runner.arch }}-py3.12-${{ hashFiles('pyproject.toml') }}
