@@ -9,9 +9,12 @@ license = { file = "LICENSE" }
 dependencies = ["httpx>=0.27", "send2trash>=1.8", "shtab>=1.7"]
 
 [project.optional-dependencies]
-docling = ["docling", "html2text>=2024.2.26"]
+# transformers 5.9.0 regressed RT-DETR v2 (docling's layout model): it
+# allocates float64 tensors on the model's device, which Apple's MPS backend
+# rejects, so every PDF fails on Apple Silicon. Pin until upstream fixes 5.9.x.
+docling = ["docling", "html2text>=2024.2.26", "transformers!=5.9.0"]
 whisper = ["mlx-whisper"]
-all = ["docling", "html2text>=2024.2.26", "mlx-whisper"]
+all = ["docling", "html2text>=2024.2.26", "mlx-whisper", "transformers!=5.9.0"]
 dev = ["pytest", "argparse-manpage>=4.5"]
 
 [project.scripts]

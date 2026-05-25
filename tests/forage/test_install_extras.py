@@ -60,6 +60,7 @@ def test_install_extras_invokes_pip(
     assert "docling" in cmd
     assert "html2text" in cmd
     assert "mlx-whisper" in cmd
+    assert "transformers!=5.9.0" in cmd  # MPS float64 regression guard
     assert "done" in capsys.readouterr().out.lower()
 
 

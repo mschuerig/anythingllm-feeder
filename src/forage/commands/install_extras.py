@@ -24,6 +24,11 @@ import sys
 
 EXTRAS = ("docling", "html2text", "mlx-whisper")
 
+# transformers 5.9.0 regressed RT-DETR v2 (docling's layout model): it
+# allocates float64 tensors on the model's device, which Apple's MPS backend
+# rejects, so every PDF fails on Apple Silicon. Pin until upstream fixes 5.9.x.
+EXTRA_CONSTRAINTS = ("transformers!=5.9.0",)
+
 
 def _is_already_installed() -> tuple[bool, bool, bool]:
     """Return (has_docling, has_html2text, has_mlx_whisper) without importing
@@ -44,7 +49,7 @@ def cmd_install_extras(args: argparse.Namespace) -> int:
         print("extras already installed (docling, html2text, mlx-whisper)")
         return 0
 
-    pkgs = list(EXTRAS)
+    pkgs = list(EXTRAS) + list(EXTRA_CONSTRAINTS)
     print(f"installing extras into {sys.prefix}:")
     print(f"  pip target: {sys.executable}")
     print(f"  packages: {' '.join(pkgs)}")

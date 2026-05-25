@@ -80,6 +80,7 @@ all = [
     { name = "docling" },
     { name = "html2text" },
     { name = "mlx-whisper" },
+    { name = "transformers" },
 ]
 dev = [
     { name = "argparse-manpage" },
@@ -88,6 +89,7 @@ dev = [
 docling = [
     { name = "docling" },
     { name = "html2text" },
+    { name = "transformers" },
 ]
 whisper = [
     { name = "mlx-whisper" },
@@ -106,6 +108,8 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'" },
     { name = "send2trash", specifier = ">=1.8" },
     { name = "shtab", specifier = ">=1.7" },
+    { name = "transformers", marker = "extra == 'all'", specifier = "!=5.9.0" },
+    { name = "transformers", marker = "extra == 'docling'", specifier = "!=5.9.0" },
 ]
 provides-extras = ["docling", "whisper", "all", "dev"]
 
