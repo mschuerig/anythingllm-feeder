@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 import sqlite3
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from forage import config, db, extractors, log, paths, walk
@@ -111,6 +111,19 @@ def _process_item(
 ) -> None:
     coll_name = cfg.name
     rel_key = f"{item.source}/{item.rel}"
+
+    # A file whose extraction failed is still byte-identical on the next run,
+    # so it classifies as UNCHANGED forever and never gets a second chance.
+    # --retry-failed re-runs the extractor for exactly those rows — the way
+    # back after a fixable environment problem (a missing docling OCR engine,
+    # a bad model download) rather than rebuilding the collection.
+    if (
+        getattr(args, "retry_failed", False)
+        and item.classification is walk.Classification.UNCHANGED
+        and item.prior is not None
+        and item.prior.status == "failed"
+    ):
+        item = replace(item, classification=walk.Classification.CHANGED)
 
     if item.classification is walk.Classification.UNCHANGED:
         stats.unchanged += 1

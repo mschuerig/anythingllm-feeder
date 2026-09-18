@@ -6,6 +6,7 @@ import pytest
 
 from forage import extractors
 from forage.cli import main
+from forage.commands.install_extras import _DOCLING
 from forage.extractors.base import ExtractorError
 
 
@@ -57,7 +58,11 @@ def test_install_extras_invokes_pip(
     cmd = captured["cmd"]
     assert cmd[0] == sys.executable
     assert cmd[1:4] == ["-m", "pip", "install"]
-    assert "docling" in cmd
+    assert _DOCLING in cmd
+    # docling must carry an OCR-engine extra; without one its auto-selection
+    # falls through to rapidocr-on-torch, which has no PP-OCRv6 weights and
+    # fails every PDF at pipeline init.
+    assert _DOCLING in ("docling[ocrmac]", "docling[rapidocr]")
     assert "html2text" in cmd
     assert "mlx-whisper" in cmd
     assert "transformers!=5.9.0" in cmd  # MPS float64 regression guard

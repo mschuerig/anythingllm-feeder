@@ -12,9 +12,29 @@ dependencies = ["httpx>=0.27", "send2trash>=1.8", "shtab>=1.7"]
 # transformers 5.9.0 regressed RT-DETR v2 (docling's layout model): it
 # allocates float64 tensors on the model's device, which Apple's MPS backend
 # rejects, so every PDF fails on Apple Silicon. Pin until upstream fixes 5.9.x.
-docling = ["docling", "html2text>=2024.2.26", "transformers!=5.9.0"]
+#
+# docling's OCR engine is auto-selected at pipeline-init time. Without an
+# explicit engine extra it falls through to rapidocr-on-torch, which asks
+# rapidocr for PP-OCRv6 weights that only exist for the onnxruntime backend
+# -> "Unsupported configuration: torch.PP-OCRv6.det.small" on every PDF.
+# Pin an engine that actually resolves: Apple Vision on macOS (no model
+# downloads), rapidocr-on-onnxruntime elsewhere.
+docling = [
+    "docling",
+    "docling[ocrmac]; sys_platform == 'darwin'",
+    "docling[rapidocr]; sys_platform != 'darwin'",
+    "html2text>=2024.2.26",
+    "transformers!=5.9.0",
+]
 whisper = ["mlx-whisper"]
-all = ["docling", "html2text>=2024.2.26", "mlx-whisper", "transformers!=5.9.0"]
+all = [
+    "docling",
+    "docling[ocrmac]; sys_platform == 'darwin'",
+    "docling[rapidocr]; sys_platform != 'darwin'",
+    "html2text>=2024.2.26",
+    "mlx-whisper",
+    "transformers!=5.9.0",
+]
 dev = ["pytest", "argparse-manpage>=4.5"]
 
 [project.scripts]

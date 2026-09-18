@@ -85,6 +85,13 @@ def build_parser() -> argparse.ArgumentParser:
         "--orphans", choices=["list", "delete", "ignore"], default="list"
     )
     p_update.add_argument("--defer-video", dest="defer_video", action="store_true")
+    p_update.add_argument(
+        "--retry-failed",
+        dest="retry_failed",
+        action="store_true",
+        help="re-extract files whose last attempt failed, even though they "
+             "haven't changed on disk",
+    )
     p_update.add_argument("--dry-run", dest="dry_run", action="store_true")
     ocr = p_update.add_mutually_exclusive_group()
     ocr.add_argument(

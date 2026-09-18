@@ -22,6 +22,7 @@ Both share a small `src/_shared/` package for platform-path resolution, logging 
 ## Distribution
 
 - **Homebrew install (`mschuerig/tap/anythingllm-feeder`) ships core only** — `httpx`, `send2trash`, `shtab`, the project. End users add docling + html2text + mlx-whisper post-install via `forage install-extras` (runs the formula venv's pip; not subject to brew's sandbox).
+- **docling must be installed with an OCR-engine extra** — `docling[ocrmac]` on macOS, `docling[rapidocr]` elsewhere. docling's `OcrAutoModel` picks an engine at pipeline-init time; with no engine present it falls through to rapidocr-on-torch and asks for PP-OCRv6 weights that only ship for the onnxruntime backend, so *every* PDF in a run dies with `Unsupported configuration: torch.PP-OCRv6.det.small`. Encoded in `pyproject.toml`'s extras and in `install_extras._DOCLING`/`_OCR_ENGINE_MODULE` — keep the two in sync.
 - `pyproject.toml`'s `[all]` extra is for source installs (`uv sync --extra all`), not the brew path.
 - Release flow is automated via `.github/workflows/release.yml` on `v*` tags; see `DEVELOPMENT.md`.
 

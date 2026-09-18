@@ -71,7 +71,7 @@ forage install-extras                          # optional, see below
 
 The first command pulls in `ffmpeg`, installs `forage` and `ingest` into an isolated virtualenv, drops zsh and bash completions, and installs man pages (`man forage`, `man ingest`). The install itself is small and fast — just `httpx`, `send2trash`, `shtab`, and the project.
 
-The second command (`forage install-extras`) is what brings in the heavy lifting: [`docling`](https://github.com/docling-project/docling) for PDF/Office extraction and [`mlx-whisper`](https://github.com/ml-explore/mlx-examples/tree/main/whisper) for audio/video transcription. It runs pip against the formula's venv and downloads roughly **3–5 GB** (PyTorch is the bulk). Why isn't it bundled into the brew install? Because Homebrew's post-install Mach-O relocator doesn't play nicely with some of the wheels these libraries pull in, and the source-build workaround needs Cargo, which Homebrew's build sandbox blocks. Running pip outside the sandbox sidesteps both problems.
+The second command (`forage install-extras`) is what brings in the heavy lifting: [`docling`](https://github.com/docling-project/docling) for PDF/Office extraction (with an OCR engine — Apple's Vision framework via `ocrmac` on macOS, rapidocr-on-onnxruntime elsewhere) and [`mlx-whisper`](https://github.com/ml-explore/mlx-examples/tree/main/whisper) for audio/video transcription. It runs pip against the formula's venv and downloads roughly **3–5 GB** (PyTorch is the bulk). Why isn't it bundled into the brew install? Because Homebrew's post-install Mach-O relocator doesn't play nicely with some of the wheels these libraries pull in, and the source-build workaround needs Cargo, which Homebrew's build sandbox blocks. Running pip outside the sandbox sidesteps both problems.
 
 You can skip `install-extras` if you only want `ingest` (uploading already-extracted Markdown to AnythingLLM) or if you'll run `forage` against pre-extracted output.
 
@@ -193,11 +193,11 @@ Each supports `-v`/`-q` and `--json` where useful.
 | `forage add-source <coll> <name> <dir>` | Add another source to an existing collection. |
 | `forage remove-source <coll> <name>` | Remove a source. Prompts about its output files. |
 | `forage set-source <coll> <name> <new-dir>` | Tell forage that a source folder moved. |
-| `forage update <name>` / `--all` | Walk sources, extract changed files, handle deletions. |
+| `forage update <name>` / `--all` | Walk sources, extract changed files, handle deletions. Add `--retry-failed` to re-extract files whose last attempt failed. |
 | `forage transcribe <name>` / `--all` | Drain the transcription queue. |
 | `forage repair <name>` | Read-only consistency check. Add `--rebuild` to regenerate `state.db` from disk. |
 | `forage doctor` | Run the read-only consistency check across **every** collection; one line of output per collection, non-zero exit on any anomaly. See [`IN_CASE_OF_ERRORS.md`](./IN_CASE_OF_ERRORS.md). |
-| `forage install-extras` | Install docling and mlx-whisper into the venv this `forage` is running in. Needed once after a Homebrew install (or after `brew upgrade`). No-op if both are already importable. |
+| `forage install-extras` | Install docling (plus its OCR engine) and mlx-whisper into the venv this `forage` is running in. Needed once after a Homebrew install (or after `brew upgrade`). No-op if they're all already importable. |
 | `forage purge -y` | Move the entire `anythingllm-feeder/` data root (forage **and** ingest state) to Trash. Refuses while a collection is in use. See **Uninstalling**. |
 
 Useful `update` flags: `--source <name>`, `--ext pdf,mp4`, `--orphans list|delete|ignore` (default `list`), `--defer-video`, `--dry-run`, `--ocr` / `--no-ocr` (force OCR on/off for this run without touching the collection's saved setting).
@@ -355,6 +355,7 @@ If things ever look inconsistent — restored from backup, partial state, accide
 - **`collection locked: news`** — another forage process is running. Wait, or `ps aux | grep forage`.
 - **A video shows `status: no_audio`** — ffprobe found no audio stream; nothing to transcribe.
 - **A transcript is marked `suspicious`** — open it and decide whether to keep, edit, or delete.
+- **Every PDF fails with `docling: Unsupported configuration: torch.PP-OCRv6.det.small`** — docling has no usable OCR engine installed and fell back to one whose weights don't exist. Re-run `forage install-extras` to pull the engine in, then `forage update <name> --retry-failed` to re-extract what failed.
 - **Looks corrupted** — `forage repair news` (diagnostic) or `forage repair news --rebuild` (regenerates `state.db` from disk).
 
 ### ingest

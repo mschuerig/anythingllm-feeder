@@ -263,6 +263,7 @@ Options:
 - `--ext pdf,mp4,...`: only process files with these extensions in this run. Comma-separated, no dots. Affects discovery only; orphan detection still considers the full set.
 - `--orphans list|delete|ignore` (default: `list`).
 - `--defer-video`: discover videos and enqueue them as `pending`, but skip inline transcription. Without this flag, videos are transcribed inline.
+- `--retry-failed`: re-extract files whose `files.status` is `failed`, even though they classify as `unchanged`. A file that failed extraction is byte-identical on the next walk, so without this flag it is never retried. The way back after a fixable environment problem (a missing docling OCR engine, a bad model download). Rows with any other status are unaffected.
 - `--dry-run`: report what would happen, write nothing.
 - `--ocr` / `--no-ocr` (mutually exclusive): override the collection's persisted `do_ocr` setting for this run only. The value is not written back to `config.json`. Useful for a one-off pass without editing the file.
 
@@ -388,10 +389,12 @@ A few decisions that the spec leaves open but the code has chosen:
 
 4. **Orphan.** Delete a source PDF. Re-run `forage update news`. The output is listed as orphan (default). Re-run with `--orphans delete`. Output file and db row are gone.
 
-5. **Bulk video deferral.** Drop 30 new tutorial videos into a music collection. `forage update music --defer-video`. Documents processed, videos queued. `forage info music` shows queue depth 30. Run `forage transcribe music --time-limit 2h` overnight repeatedly until drained.
+5. **Retry after a fixed environment.** A run fails every PDF because docling has no usable OCR engine. Install the engine, then `forage update news --retry-failed`: the previously-`failed` rows are re-extracted and flip to `ok`; `ok` rows are still reported `unchanged`. Without the flag the same run reports them all `unchanged` and they stay `failed`.
 
-6. **Suspicious transcript.** Transcribe a silent music demo. Heuristics fire. Markdown is written, status is `suspicious`. `forage info music` lists it.
+6. **Bulk video deferral.** Drop 30 new tutorial videos into a music collection. `forage update music --defer-video`. Documents processed, videos queued. `forage info music` shows queue depth 30. Run `forage transcribe music --time-limit 2h` overnight repeatedly until drained.
 
-7. **Recovery.** Corrupt or delete `state.db`. `forage repair news --rebuild` reconstructs the db from disk.
+7. **Suspicious transcript.** Transcribe a silent music demo. Heuristics fire. Markdown is written, status is `suspicious`. `forage info music` lists it.
 
-8. **Multiple sources.** `forage create research --source papers=~/Papers --source notes=~/Notes`. `forage update research` produces `output/papers/...` and `output/notes/...`. `forage add-source research drafts ~/Drafts` adds a third source; a subsequent `forage update research` processes only the new source's files. `forage remove-source research notes --delete-files` removes the source from config, drops its rows, and clears `output/notes/`.
+8. **Recovery.** Corrupt or delete `state.db`. `forage repair news --rebuild` reconstructs the db from disk.
+
+9. **Multiple sources.** `forage create research --source papers=~/Papers --source notes=~/Notes`. `forage update research` produces `output/papers/...` and `output/notes/...`. `forage add-source research drafts ~/Drafts` adds a third source; a subsequent `forage update research` processes only the new source's files. `forage remove-source research notes --delete-files` removes the source from config, drops its rows, and clears `output/notes/`.

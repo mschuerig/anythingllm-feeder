@@ -209,6 +209,80 @@ def test_update_records_failure(
     assert row.status_detail and "boom" in row.status_detail
 
 
+def test_update_leaves_failed_file_alone_without_retry_flag(
+    app_support: Path, tmp_path: Path,
+    failing_docling: FailingDocling, monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str]
+):
+    """A failed file is byte-identical next run, so it reads as unchanged."""
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "boom.md").write_text("hi")
+    _seed("demo", src)
+    assert run("update", "demo") == 0
+    capsys.readouterr()
+
+    good = FakeDocling()
+    monkeypatch.setattr(extractors, "get_docling", lambda *, do_ocr: good)
+
+    assert run("update", "demo") == 0
+    out = capsys.readouterr().out
+    assert "unchanged=1" in out
+    assert good.calls == []
+    with db.open_db(paths.collection_db_path("demo")) as conn:
+        assert db.get_file(conn, "src", "boom.md").status == "failed"
+
+
+def test_update_retry_failed_re_extracts(
+    app_support: Path, tmp_path: Path,
+    failing_docling: FailingDocling, monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str]
+):
+    """--retry-failed gives a previously-failed file another run through the
+    extractor even though nothing about it changed on disk."""
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "boom.md").write_text("hi")
+    (src / "boom2.md").write_text("ok")
+    _seed("demo", src)
+    assert run("update", "demo") == 0
+    capsys.readouterr()
+
+    good = FakeDocling()
+    monkeypatch.setattr(extractors, "get_docling", lambda *, do_ocr: good)
+
+    assert run("update", "demo", "--retry-failed") == 0
+    out = capsys.readouterr().out
+    assert "changed=2" in out
+    assert {p.name for p in good.calls} == {"boom.md", "boom2.md"}
+
+    with db.open_db(paths.collection_db_path("demo")) as conn:
+        row = db.get_file(conn, "src", "boom.md")
+    assert row.status == "ok"
+    assert row.status_detail is None
+    out_path = paths.collection_output_dir("demo") / "src" / "boom.md"
+    assert out_path.read_text().startswith("# boom.md")
+
+
+def test_update_retry_failed_leaves_healthy_files_alone(
+    app_support: Path, tmp_path: Path,
+    fake_docling: FakeDocling, capsys: pytest.CaptureFixture[str]
+):
+    """--retry-failed only reaches `failed` rows; `ok` ones stay unchanged."""
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "fine.md").write_text("ok")
+    _seed("demo", src)
+    assert run("update", "demo") == 0
+    fake_docling.calls.clear()
+    capsys.readouterr()
+
+    assert run("update", "demo", "--retry-failed") == 0
+    out = capsys.readouterr().out
+    assert "unchanged=1" in out
+    assert fake_docling.calls == []
+
+
 def test_update_multi_source_isolates(
     app_support: Path, tmp_path: Path,
     fake_docling: FakeDocling, capsys: pytest.CaptureFixture[str]
