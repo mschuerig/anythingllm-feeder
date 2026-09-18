@@ -1,4 +1,4 @@
-.TH FORAGE "1" "2026\-05\-17" "anythingllm\-feeder 0.1.8" "Generated Python Manual"
+.TH FORAGE "1" "2026\-09\-18" "anythingllm\-feeder 0.2.2" "Generated Python Manual"
 .SH NAME
 forage \- Extract documents and videos to Markdown, organized as named collections of sources.
 .SH SYNOPSIS
@@ -84,7 +84,8 @@ walk sources and extract changed files
 
 usage: forage update [\-h] [\-\-all] [\-\-source SOURCE_NAME] [\-\-ext EXT]
                      [\-\-orphans {list,delete,ignore}] [\-\-defer\-video]
-                     [\-\-dry\-run] [\-\-ocr | \-\-no\-ocr] [\-v] [\-q] [\-\-json]
+                     [\-\-retry\-failed] [\-\-dry\-run] [\-\-ocr | \-\-no\-ocr] [\-v] [\-q]
+                     [\-\-json]
                      [name]
 
 arguments:
@@ -113,6 +114,11 @@ comma\-separated extensions (no dots)
 
 .TP
 \fB\-\-defer\-video\fR
+
+.TP
+\fB\-\-retry\-failed\fR
+re\-extract files whose last attempt failed, even though they haven't changed
+on disk
 
 .TP
 \fB\-\-dry\-run\fR
