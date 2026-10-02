@@ -1,9 +1,9 @@
-.TH INGEST "1" "2026\-09\-18" "anythingllm\-feeder 0.2.2" "Generated Python Manual"
+.TH INGEST "1" "2026\-10\-02" "anythingllm\-feeder 0.2.4" "Generated Python Manual"
 .SH NAME
 ingest \- Upload forage's extracted Markdown into a local AnythingLLM instance, one workspace per collection.
 .SH SYNOPSIS
 .B ingest
-[-h] [--version] [-v] [-q] [--json] [--url URL] [--api-key API_KEY] [--api-key-file API_KEY_FILE] [--storage-dir STORAGE_DIR] [--http-timeout HTTP_TIMEOUT] [--print-completion {bash,zsh,tcsh}] {sync,status,list,check,reset,purge} ...
+[-h] [--version] [-v] [-q] [--json] [--url URL] [--api-key API_KEY] [--api-key-file API_KEY_FILE] [--storage-dir STORAGE_DIR] [--http-timeout HTTP_TIMEOUT] [--print-completion {bash,zsh,tcsh,fish,powershell}] {sync,status,list,check,reset,purge} ...
 
 .SH
 POSITIONAL ARGUMENTS
@@ -355,7 +355,7 @@ read/write timeout in seconds for AnythingLLM HTTP calls (overrides
 INGEST_HTTP_TIMEOUT; default 300). Connect timeout is fixed at 5 s.
 
 .TP
-\fB\-\-print\-completion\fR \fI\,{bash,zsh,tcsh}\/\fR
+\fB\-\-print\-completion\fR \fI\,{bash,zsh,tcsh,fish,powershell}\/\fR
 print shell completion script
 
 .SH AUTHOR
