@@ -32,7 +32,7 @@ Releases are driven by tags. Pushing a `v*` tag to `mschuerig/anythingllm-feeder
 1. Computes the source-tarball `sha256` from GitHub.
 2. Checks out `mschuerig/homebrew-tap` (using a fine-grained PAT, see one-time setup below).
 3. Patches `Formula/anythingllm-feeder.rb` — replaces `url` and `sha256`.
-4. **Verifies** by running `brew install --build-from-source` against the patched formula on a `macos-14` (Apple Silicon) runner, then smoke-tests `forage --version`, `ingest --version`, `man forage`, `forage doctor`, etc. If install or any check fails, the workflow aborts and the tap is not updated.
+4. **Verifies** by running `brew install --build-from-source` against the patched formula on a `macos-15` (Apple Silicon) runner, then smoke-tests `forage --version`, `ingest --version`, `man forage`, `forage doctor`, etc. If install or any check fails, the workflow aborts and the tap is not updated.
 5. Commits + pushes the patched formula back to the tap with a `github-actions[bot]` identity.
 
 Subsequent end-user installs:
@@ -99,7 +99,7 @@ That's it; the next `v*` tag push runs the full pipeline.
 `/Users/michael/Projekte/anythingllm-feeder/.github/workflows/release.yml`:
 
 - **Trigger:** `push` events on `tags: ['v*']`.
-- **Runner:** `macos-14` (Apple Silicon) — needed because the verification step installs mlx-whisper, which is arm64-only.
+- **Runner:** `macos-15` (Apple Silicon) — needed because the verification step installs mlx-whisper, which is arm64-only.
 - **Steps:** compute meta → checkout tap → patch formula (Python regex; lambda-replacement so backslashes in URLs/sha don't get interpreted as backrefs) → verify via `brew install --build-from-source --formula <ABSOLUTE_PATH>` (the absolute path matters: a relative path containing slashes is parsed by brew as a `<tap>/<formula>` reference) → commit + push.
 
 The tap formula at `mschuerig/homebrew-tap/Formula/anythingllm-feeder.rb` keeps placeholder `url` and `sha256` lines between releases; the workflow overwrites both per tag. Don't hand-edit those two lines for routine releases — they'll be clobbered.
